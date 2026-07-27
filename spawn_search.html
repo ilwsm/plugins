@@ -46,11 +46,11 @@ async function search() {
   const resDiv = document.getElementById('results');
   resDiv.innerHTML = '<div class="loading">Ищем...</div>';
 
-  const apiUrl = `http://spawn.pp.ua:59117/api/v2.0/indexers/all/results?apikey=2&Query=${encodeURIComponent(query)}`;
+  const apiUrl = `https://spawn.pp.ua:59117/api/v2.0/indexers/all/results?apikey=2&Query=${encodeURIComponent(query)}`;
   const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(apiUrl);
 
   try {
-    const resp = await fetch(proxyUrl);
+    const resp = await fetch(apiUrl);
     if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
     const data = await resp.json();
     if (!data.Results || data.Results.length === 0) {
