@@ -61,6 +61,7 @@ async function search() {
     data.Results.forEach(r => {
       const size = r.Size ? (r.Size / 1073741824).toFixed(2) + ' GB' : '?';
       const seeders = r.Seeders || 0;
+      const peers = r.Peers || 0;
       const tracker = r.Tracker || 'Неизвестный трекер';
       const title = r.Title || 'Без названия';
       const link = r.Link || '#';
@@ -72,7 +73,7 @@ async function search() {
           <div class="title">
             <a href="${details}" target="_blank" rel="noopener">${title}</a>
           </div>
-          <div class="meta">📡 ${tracker}  •  📦 ${size}  •  🔼 ${seeders} сидов</div>
+          <div class="meta">📡 ${tracker}  •  📦 ${size}  •  🔼 ${seeders} сидов • 🔽 ${peers} пиров</div>
           <a class="btn link-btn" href="${link}" target="_blank" rel="noopener">⬇ Скачать</a>
           <a class="btn guid-btn" href="${guid}" target="_blank" rel="noopener">🔗 На трекере</a>
         </div>
