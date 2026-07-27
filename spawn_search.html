@@ -46,7 +46,7 @@ async function search() {
   const resDiv = document.getElementById('results');
   resDiv.innerHTML = '<div class="loading">Ищем...</div>';
 
-  const apiUrl = `https://spawn.pp.ua:59117/api/v2.0/indexers/all/results?apikey=2&Query=${encodeURIComponent(query)}`;
+  const apiUrl = `http://spawn.pp.ua:59117/api/v2.0/indexers/all/results?apikey=2&Query=${encodeURIComponent(query)}`;
   const proxyUrl = 'https://mtp.ua-andrey.workers.dev/?url=' + encodeURIComponent(apiUrl);
 
   try {
