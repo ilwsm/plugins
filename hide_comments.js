@@ -3,9 +3,12 @@
 
 	// Removes the "comments/discuss" row from the movie/show card.
 	// Hooks into Lampa's internal 'full' component build event and, the
-	// moment the discuss row is created, removes it from both the DOM
-	// and the parent's navigation items list (so keyboard/remote
-	// up/down navigation doesn't land on an invisible row).
+	// moment the discuss row is created, hides it before it becomes
+	// visible. We deliberately hide rather than destroy/splice it out
+	// of the parent's internal items list: that list doubles as a
+	// counter for how many rows have already been rendered, and removing
+	// an entry from it desyncs the offset used when loading further rows,
+	// causing the next row to be rendered twice.
 	function startPlugin() {
 		window.hide_comments_plugin = true;
 
@@ -13,19 +16,10 @@
 			if (e.type !== 'build' || e.name !== 'discuss') return;
 
 			try {
-				var parent = e.link; // the movie card component instance
-				var item = e.item;   // the discuss row instance
+				var item = e.item; // the discuss row instance
 
-				// Remove from the parent's internal items array so
-				// remote-control navigation skips it cleanly.
-				if (parent && Array.isArray(parent.items)) {
-					var idx = parent.items.indexOf(item);
-					if (idx !== -1) parent.items.splice(idx, 1);
-				}
-
-				// Detach the row's DOM node and clean up its internal scroll.
-				if (item && typeof item.destroy === 'function') {
-					item.destroy();
+				if (item && item.html) {
+					item.html.addClass('hide');
 				}
 			} catch (e) {
 				// Fail silently, never break the movie card if Lampa's
