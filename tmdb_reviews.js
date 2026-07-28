@@ -65,7 +65,11 @@
 
 		var path = (isTV ? 'tv/' : 'movie/') + id + '/reviews';
 
-		Lampa.Api.sources.tmdb.get(path, {}, function (data) {
+		// Force English: Lampa.Api.sources.tmdb.get() otherwise attaches the
+		// app's UI language (e.g. `ru`), and TMDB filters reviews by that
+		// language - since almost all TMDB reviews are in English, that
+		// silently returns an empty result set even for popular movies.
+		Lampa.Api.sources.tmdb.get(path, { langs: 'en-US' }, function (data) {
 			if (data && data.results && data.results.length) {
 				// Prefer longer, more substantial reviews first.
 				var sorted = data.results.slice().sort(function (a, b) {
