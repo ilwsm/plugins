@@ -88,7 +88,11 @@
 			if (e.type !== 'options') return;
 
 			try {
-				var movie = e.props && typeof e.props.get === 'function' ? e.props.get('movie') : null;
+				// Note: despite the event passing `props: this.props`, the
+				// component that fires this event (Start) does not actually
+				// have a `.props` field - it stores the movie card as
+				// `.card`. Use `e.link.card` instead.
+				var movie = e.link && e.link.card ? e.link.card : null;
 
 				e.options.push({
 					title: 'Рецензии',
