@@ -7,7 +7,7 @@
 	// item, not on every card view - keeps things lazy and avoids
 	// unnecessary network requests.
 
-	var MAX_REVIEWS = 5;
+	var MAX_REVIEWS = 7;
 	var MAX_LENGTH = 3000;
 
 	function buildReviewsHtml(reviews) {
@@ -23,10 +23,10 @@
 			var card = $('<div style="margin-bottom:1.5em;"></div>');
 
 			// Using .text() (not .html()) for untrusted external content to avoid injection.
-			var head = $('<div style="font-weight:bold; margin-bottom:0.4em;"></div>').text(
+			var head = $('<div style="font-weight:bold; font-size:1.2em; margin-bottom:0.4em;"></div>').text(
 				author + (rating ? ' — ' + rating + '/10' : '')
 			);
-			var body = $('<div style="white-space:pre-line; opacity:0.85;"></div>').text(text);
+			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').text(text);
 
 			card.append(head).append(body);
 			wrap.append(card);
