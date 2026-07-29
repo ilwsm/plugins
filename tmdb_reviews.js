@@ -13,7 +13,11 @@
 	function buildReviewsHtml(reviews) {
 		var wrap = $('<div style="padding: 1em;"></div>');
 
-		reviews.slice(0, MAX_REVIEWS).forEach(function (review) {
+		reviews.slice(0, MAX_REVIEWS).forEach(function (review, i) {
+			if (i > 0) {
+				wrap.append('<hr style="border:none; border-top:1px solid rgba(255,255,255,0.2); margin:1.3em 0;">');
+			}
+
 			var author = review.author || 'Anonymous';
 			var text = (review.content || '').trim();
 			var rating = review.author_details && review.author_details.rating;
