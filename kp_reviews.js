@@ -227,6 +227,8 @@
 			return;
 		}
 
+		var title = movie.title || movie.name || '?';
+
 		findKpId(movie, function (kpId, headers) {
 			var network = new Lampa.Reguest();
 			network.timeout(15000);
@@ -239,13 +241,13 @@
 
 					Lampa.Modal.update(buildReviewsHtml(sorted));
 				} else {
-					Lampa.Modal.update(loading('Рецензии не найдены'));
+					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
 				}
 			}, function () {
-				Lampa.Modal.update(loading('Ошибка загрузки рецензий'));
+				Lampa.Modal.update(loading('Ошибка загрузки рецензий. Фильм: "' + title + '", KP id: ' + kpId));
 			}, false, { headers: headers });
 		}, function () {
-			Lampa.Modal.update(loading('Не удалось найти фильм на Кинопоиске'));
+			Lampa.Modal.update(loading('Не удалось найти фильм на Кинопоиске. Фильм: "' + title + '"'));
 		});
 	}
 
