@@ -16,7 +16,7 @@
 	var KP_API_KEY = '4dc5011a-c3d5-4345-9861-d1c38222f747'; // Your own kinopoiskapiunofficial.tech key
 
 	function cleanTitle(str) {
-		return str.replace(/[\s.,:;’'`!?]+/g, ' ').trim();
+		return str.replace(/[\s.,:;''`!?]+/g, ' ').trim();
 	}
 
 	function kpCleanTitle(str) {
@@ -250,10 +250,7 @@
 		                var $body = $r && $r.find && $r.find('.modal__body, .modal__content');
 		                if ($body && $body.length) {
 		                    var el = $body[0];
-		                    if (typeof el.scrollTo === 'function')
-		                        el.scrollTo(0, el.scrollHeight);
-		                    else
-		                        el.scrollTop = el.scrollHeight;
+		                    el.scrollTop = el.scrollHeight;
 		                }
 		            } catch (err) { /* ignore */
 		            }
@@ -261,7 +258,7 @@
 		        }
 		
 		        // PageUp / ChannelUp -> previous page (if exists)
-		        if (keyName === 'PageDown' || keyName === 'ChannelDown') {
+		        if (keyName === 'PageUp' || keyName === 'ChannelUp') {
 		            e.preventDefault && e.preventDefault();
 		            if (kpId && currentPage > 1)
 		                fetchPage(currentPage - 1);
@@ -269,7 +266,7 @@
 		        }
 		
 		        // PageDown / ChannelDown -> next page (if exists)
-		        if (keyName === 'PageUp' || keyName === 'ChannelUp') {
+		        if (keyName === 'PageDown' || keyName === 'ChannelDown') {
 		            e.preventDefault && e.preventDefault();
 		            if (kpId && currentPage < totalPages)
 		                fetchPage(currentPage + 1);
