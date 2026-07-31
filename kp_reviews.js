@@ -158,8 +158,7 @@
 
 			// Using .text() (not .html()) for untrusted external content to avoid injection.
 			var head = $('<div style="font-weight:bold; font-size:1.25em; margin-bottom:0.2em;"></div>').text(title || author);
-			var sub = $('<div style="opacity:0.6; font-size:1em; margin-bottom:0.5em;"></div>').text(author + typeLabel);
-			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').text(text);
+			var sub = $('<div style="opacity:0.6; font-size:1em; margin-bottom:0.5em;"></div>').text(author + typeLabel);			
 			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').html(safeFormat(text));
 
 			card.append(head).append(sub).append(body);
