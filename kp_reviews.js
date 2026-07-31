@@ -11,48 +11,9 @@
 	// (search by IMDb id, fall back to title+year matching) to resolve a
 	// Kinopoisk film id before requesting its reviews.
 
-	var MAX_REVIEWS = 7;
 	var MAX_LENGTH = 3000;
 	var KP_PROX = 'https://kp-relay.ua-andrey.workers.dev/'; // Same relay used by the ratings plugin
-
-	function salt(input) {
-		var str = (input || '') + '';
-		var hash = 0;
-
-		for (var i = 0; i < str.length; i++) {
-			var c = str.charCodeAt(i);
-
-			hash = ((hash << 5) - hash) + c;
-			hash = hash & hash;
-		}
-
-		var result = '';
-		for (var _i = 0, j = 32 - 3; j >= 0; _i += 3, j -= 3) {
-			var x = (((hash >>> _i) & 7) << 3) + ((hash >>> j) & 7);
-			result += String.fromCharCode(x < 26 ? 97 + x : x < 52 ? 39 + x : x - 4);
-		}
-		return result;
-	}
-
-	function decodeSecret(input, password) {
-		var result = '';
-		password = (password || '') + '';
-		if (input && password) {
-			var hash = salt('123456789' + password);
-			while (hash.length < input.length) {
-				hash += hash;
-			}
-			var i = 0;
-			while (i < input.length) {
-				result += String.fromCharCode(input[i] ^ hash.charCodeAt(i));
-				i++;
-			}
-		}
-		return result;
-	}
-
-	// Same shared/free API key already used by the ratings plugin.
-	var KP_API_KEY = decodeSecret([85, 4, 115, 118, 107, 125, 10, 70, 85, 67, 82, 14, 32, 110, 102, 43, 9, 19, 85, 73, 4, 83, 33, 110, 52, 44, 92, 21, 72, 22, 87, 1, 118, 32, 100, 127], atob('X0tQM3Bhc3N3b3Jk'));
+	var KP_API_KEY = '4dc5011a-c3d5-4345-9861-d1c38222f747'; // Your own kinopoiskapiunofficial.tech key
 
 	function cleanTitle(str) {
 		return str.replace(/[\s.,:;’'`!?]+/g, ' ').trim();
@@ -91,8 +52,8 @@
 		network.timeout(15000);
 		network.silent(url, function (json) {
 			handleResult(json, url);
-		}, function () {
-			onFail();
+		}, function (jqXHR) {
+			onFail(describeApiError(network, jqXHR));
 		}, false, { headers: headers });
 
 		function handleResult(json, used_url) {
@@ -105,8 +66,8 @@
 				network.silent(url_by_title, function (json2) {
 					var items2 = (json2.items && json2.items.length) ? json2.items : ((json2.films && json2.films.length) ? json2.films : []);
 					chooseFilm(items2);
-				}, function () {
-					onFail();
+				}, function (jqXHR) {
+					onFail(describeApiError(network, jqXHR));
 				}, false, { headers: headers });
 			} else {
 				chooseFilm([]);
@@ -179,15 +140,15 @@
 	function buildReviewsHtml(reviews) {
 		var wrap = $('<div style="padding: 1em;"></div>');
 
-		reviews.slice(0, MAX_REVIEWS).forEach(function (review, i) {
+		reviews.forEach(function (review, i) {
 			if (i > 0) {
 				wrap.append('<hr style="border:none; border-top:1px solid rgba(255,255,255,0.2); margin:1.3em 0;">');
 			}
 
-			var author = review.reviewAutor || 'Anonymous';
-			var title = (review.reviewTitle || '').trim();
-			var text = (review.reviewDescription || '').trim();
-			var type = review.reviewType; // POSITIVE / NEGATIVE / NEUTRAL
+			var author = review.author || 'Anonymous';
+			var title = (review.title || '').trim();
+			var text = (review.description || '').trim();
+			var type = review.type; // POSITIVE / NEGATIVE / NEUTRAL
 
 			if (text.length > MAX_LENGTH) text = text.slice(0, MAX_LENGTH) + '…';
 
@@ -209,6 +170,24 @@
 
 	function loading(text) {
 		return $('<div style="padding:1em; text-align:center;"></div>').text(text);
+	}
+
+	// Decodes kinopoiskapiunofficial.tech error responses using the
+	// codes documented at kinopoiskapiunofficial.tech/documentation/api
+	function describeApiError(network, jqXHR) {
+		var status = network.errorCode(jqXHR);
+		var json = network.errorJSON(jqXHR);
+		var apiMessage = (json && (json.message || json.text)) || '';
+
+		var known = {
+			401: 'пустой или неправильный токен',
+			402: 'превышен лимит запросов (дневной или общий)',
+			429: 'слишком много запросов, общий лимит 20 запросов в секунду'
+		};
+
+		var explanation = known[status] || 'неизвестная ошибка';
+
+		return 'Ошибка API Кинопоиска (' + status + '): ' + explanation + (apiMessage ? '. Ответ сервера: "' + apiMessage + '"' : '');
 	}
 
 	function showReviewsModal(movie) {
@@ -233,21 +212,21 @@
 			var network = new Lampa.Reguest();
 			network.timeout(15000);
 			network.silent(KP_PROX + 'https://kinopoiskapiunofficial.tech/api/v2.2/films/' + kpId + '/reviews', function (data) {
-				if (data && data.reviews && data.reviews.length) {
+				if (data && data.items && data.items.length) {
 					// Prefer longer, more substantial reviews first.
-					var sorted = data.reviews.slice().sort(function (a, b) {
-						return (b.reviewDescription || '').length - (a.reviewDescription || '').length;
+					var sorted = data.items.slice().sort(function (a, b) {
+						return (b.description || '').length - (a.description || '').length;
 					});
 
 					Lampa.Modal.update(buildReviewsHtml(sorted));
 				} else {
 					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
 				}
-			}, function () {
-				Lampa.Modal.update(loading('Ошибка загрузки рецензий. Фильм: "' + title + '", KP id: ' + kpId));
+			}, function (jqXHR) {
+				Lampa.Modal.update(loading(describeApiError(network, jqXHR) + '. Фильм: "' + title + '", KP id: ' + kpId));
 			}, false, { headers: headers });
-		}, function () {
-			Lampa.Modal.update(loading('Не удалось найти фильм на Кинопоиске. Фильм: "' + title + '"'));
+		}, function (apiError) {
+			Lampa.Modal.update(loading((apiError || 'Не удалось найти фильм на Кинопоиске') + '. Фильм: "' + title + '"'));
 		});
 	}
 
