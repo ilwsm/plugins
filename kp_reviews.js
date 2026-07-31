@@ -137,6 +137,14 @@
 		}
 	}
 
+	// Escapes all HTML, then re-enables a small whitelist of safe formatting
+	// tags only (no attributes allowed), so things like <i>...</i> render
+	// properly without allowing arbitrary/unsafe HTML through.
+	function safeFormat(text) {
+		var escaped = $('<div>').text(text).html();
+		return escaped.replace(/&lt;(\/?)(b|i|em|strong|br)&gt;/gi, '<$1$2>');
+	}
+
 	function buildReviewsHtml(reviews) {
 		var wrap = $('<div style="padding: 1em;"></div>');
 
@@ -152,13 +160,18 @@
 
 			//if (text.length > MAX_LENGTH) text = text.slice(0, MAX_LENGTH) + '…';
 
-			var typeLabel = type === 'POSITIVE' ? ' — положительная' : type === 'NEGATIVE' ? ' — отрицательная' : type === 'NEUTRAL' ? ' — нейтральная' : '';
+			var typeText = type === 'POSITIVE' ? 'положительная' : type === 'NEGATIVE' ? 'отрицательная' : type === 'NEUTRAL' ? 'нейтральная' : '';
+			var typeColor = type === 'POSITIVE' ? '#4CAF50' : type === 'NEGATIVE' ? '#F44336' : type === 'NEUTRAL' ? '#FFC107' : '';
+			// Note: the thumb emoji itself is rendered by the system's
+			// color emoji font in most browsers/webviews and will likely
+			// keep its own default color regardless of the CSS below.
+			var typeEmoji = type === 'POSITIVE' ? ' \uD83D\uDC4D' : type === 'NEGATIVE' ? ' \uD83D\uDC4E' : '';
 
 			var card = $('<div></div>');
 
 			// Using .text() (not .html()) for untrusted external content to avoid injection.
 			var head = $('<div style="font-weight:bold; font-size:1.25em; margin-bottom:0.2em;"></div>').text(title || author);
-			var sub = $('<div style="opacity:0.6; font-size:1em; margin-bottom:0.5em;"></div>').text(author + typeLabel);			
+			var sub = $('<div style="font-size:1.1em; margin-bottom:0.5em;' + (typeColor ? ' color:' + typeColor + ';' : '') + '"></div>').text(author + (typeText ? ' - ' + typeText : '') + typeEmoji);
 			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').html(safeFormat(text));
 
 			card.append(head).append(sub).append(body);
@@ -168,13 +181,13 @@
 		return wrap;
 	}
 
-	// Escapes all HTML, then re-enables a small whitelist of safe formatting
-	// tags only (no attributes allowed), so things like <i>...</i> render
-	// properly without allowing arbitrary/unsafe HTML through.
-	function safeFormat(text) {
-		var escaped = $('<div>').text(text).html();
-		return escaped.replace(/&lt;(\/?)(b|i|em|strong|br)&gt;/gi, '<$1$2>');
-	}
+																		  
+																	   
+															
+							
+											 
+																		
+  
 
 	function loading(text) {
 		return $('<div style="padding:1em; text-align:center;"></div>').text(text);
@@ -199,10 +212,50 @@
 	}
 
 	function showReviewsModal(movie) {
+		var title = movie ? (movie.title || movie.name || '?') : '?';
+		var currentPage = 1;
+		var totalPages = 1;
+		var kpId = null;
+		var kpHeaders = null;
+
+		function fetchPage(page) {
+			var network = new Lampa.Reguest();
+			network.timeout(15000);
+			network.silent(KP_PROX + 'https://kinopoiskapiunofficial.tech/api/v2.2/films/' + kpId + '/reviews?page=' + page, function (data) {
+				currentPage = page;
+				totalPages = (data && data.totalPages) || 1;
+
+				Lampa.Modal.title('Рецензии (Кинопоиск) — стр. ' + currentPage + ' из ' + totalPages);
+
+				if (data && data.items && data.items.length) {
+					Lampa.Modal.update(buildReviewsHtml(data.items));
+				} else {
+					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
+				}
+			}, function (jqXHR) {
+				Lampa.Modal.update(loading(describeApiError(network, jqXHR) + '. Фильм: "' + title + '", KP id: ' + kpId));
+			}, false, { headers: kpHeaders });
+		}
+
 		Lampa.Modal.open({
 			title: 'Рецензии (Кинопоиск)',
 			html: loading('Загрузка...'),
 			size: 'large',
+			buttons: [
+				{
+					name: '\u25C0 Пред. страница',
+					onSelect: function () {
+						if (kpId && currentPage > 1) fetchPage(currentPage - 1);
+					}
+				},
+				{
+					name: 'След. страница \u25B6',
+					onSelect: function () {
+						if (kpId && currentPage < totalPages) fetchPage(currentPage + 1);
+					}
+				}
+			],
+			buttons_position: 'outside',
 			onBack: function () {
 				Lampa.Controller.toggle('content');
 				Lampa.Modal.close();
@@ -214,20 +267,20 @@
 			return;
 		}
 
-		var title = movie.title || movie.name || '?';
+											   
 
-		findKpId(movie, function (kpId, headers) {
-			var network = new Lampa.Reguest();
-			network.timeout(15000);
-			network.silent(KP_PROX + 'https://kinopoiskapiunofficial.tech/api/v2.2/films/' + kpId + '/reviews', function (data) {
-				if (data && data.items && data.items.length) {
-					Lampa.Modal.update(buildReviewsHtml(data.items));
-				} else {
-					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
-				}
-			}, function (jqXHR) {
-				Lampa.Modal.update(loading(describeApiError(network, jqXHR) + '. Фильм: "' + title + '", KP id: ' + kpId));
-			}, false, { headers: headers });
+		findKpId(movie, function (foundId, headers) {
+			kpId = foundId;
+			kpHeaders = headers;
+			fetchPage(1);
+												  
+													  
+			
+																													  
+	 
+						
+																													
+								   
 		}, function (apiError) {
 			Lampa.Modal.update(loading((apiError || 'Не удалось найти фильм на Кинопоиске') + '. Фильм: "' + title + '"'));
 		});
