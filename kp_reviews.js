@@ -210,26 +210,72 @@
 		var kpId = null;
 		var kpHeaders = null;
 
+		// key handler: Home -> first page, End -> last page
+		function keyHandler(e) {
+			var k = e && (e.key || e.keyIdentifier || e.keyCode);
+			// normalize key
+			var keyName = '';
+			if (typeof k === 'string') keyName = k;
+			else if (typeof k === 'number') {
+				// keyCode fallback
+				if (k === 36) keyName = 'Home';
+				else if (k === 35) keyName = 'End';
+				else if (k === 33) keyName = 'PageUp';
+				else if (k === 34) keyName = 'PageDown';
+			}
+
+			// handle keyboard
+			try {
+				if ((keyName === 'Home')) {
+					e.preventDefault && e.preventDefault();
+					if (kpId && currentPage !== 1) fetchPage(1);
+					return;
+				}
+				if ((keyName === 'End')) {
+					e.preventDefault && e.preventDefault();
+					if (kpId && currentPage !== totalPages) fetchPage(totalPages);
+					return;
+				}
+				// support PageUp/PageDown and remote ChannelUp/ChannelDown
+				if (keyName === 'PageUp' || keyName === 'ChannelUp') {
+					e.preventDefault && e.preventDefault();
+					if (kpId && currentPage !== 1) fetchPage(1);
+					return;
+				}
+				if (keyName === 'PageDown' || keyName === 'ChannelDown') {
+					e.preventDefault && e.preventDefault();
+					if (kpId && currentPage !== totalPages) fetchPage(totalPages);
+					return;
+				}
+			} catch (err) {
+				// ignore
+			}
+		}
+
 		function updateFooterButtonsVisibility() {
 			var $render = Lampa.Modal.render && Lampa.Modal.render();
 			if (!$render || !$render.length) return;
-			var $footerBtns = $render.find('.modal__footer .modal__button');
-			if (!$footerBtns.length) return;
+			var $footer = $render.find('.modal__footer');
+			var $footerBtns = $footer.find('.modal__button');
+			if (!$footer.length || !$footerBtns.length) return;
 
 			// Apply small style locally for this modal
 			$footerBtns.css({ padding: '0.4em 0.7em', 'font-size': '1em' });
 
 			if (totalPages <= 1) {
-				$footerBtns.hide();
+				$footer.hide();
 				return;
 			}
 
-			$footerBtns.show();
+			$footer.show();
 			var $prev = $footerBtns.first();
 			var $next = $footerBtns.last();
 
 			if (currentPage <= 1) $prev.hide(); else $prev.show();
 			if (currentPage >= totalPages) $next.hide(); else $next.show();
+
+			// if both buttons hidden then hide footer
+			if ($prev.is(':hidden') && $next.is(':hidden')) $footer.hide();
 		}
 
 		function fetchPage(page) {
@@ -291,27 +337,35 @@
 			],
 			buttons_position: 'outside',
 			onBack: function () {
+				// cleanup key handler
+				try { window.removeEventListener && window.removeEventListener('keydown', keyHandler); } catch (e) {}
 				Lampa.Controller.toggle('content');
 				Lampa.Modal.close();
 			}
 		});
 
-		// Initially style and hide footer buttons until we know pages
+		// Initially style and hide footer (or buttons) until we know pages
 		try {
 			var $renderOnce = Lampa.Modal.render && Lampa.Modal.render();
 			if ($renderOnce && $renderOnce.length) {
-				var $footerBtns = $renderOnce.find('.modal__footer .modal__button');
-				if ($footerBtns && $footerBtns.length) {
-					$footerBtns.css({ padding: '0.4em 0.7em', 'font-size': '1em' });
-					$footerBtns.hide();
+				var $footerOnce = $renderOnce.find('.modal__footer');
+				var $footerBtnsOnce = $footerOnce.find('.modal__button');
+				if ($footerBtnsOnce && $footerBtnsOnce.length) {
+					$footerBtnsOnce.css({ padding: '0.4em 0.7em', 'font-size': '1em' });
+					$footerOnce.hide();
 				}
 			}
 		} catch (e) {
 			// ignore
 		}
 
+		// register key handler for keyboard/remote actions
+		try { window.addEventListener && window.addEventListener('keydown', keyHandler); } catch (e) {}
+
 		if (!movie) {
 			Lampa.Modal.update(loading('Нет данных о фильме'));
+			// cleanup key handler when nothing to show
+			try { window.removeEventListener && window.removeEventListener('keydown', keyHandler); } catch (e) {}
 			return;
 		}
 
@@ -321,6 +375,7 @@
 			fetchPage(1);
 		}, function (apiError) {
 			Lampa.Modal.update(loading((apiError || 'Не удалось найти фильм на Кинопоиске') + '. Фильм: "' + title + '"'));
+			try { window.removeEventListener && window.removeEventListener('keydown', keyHandler); } catch (e) {}
 		});
 	}
 
