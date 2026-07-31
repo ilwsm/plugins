@@ -210,47 +210,75 @@
 		var kpId = null;
 		var kpHeaders = null;
 
-		// key handler: Home -> first page, End -> last page
 		function keyHandler(e) {
-			var k = e && (e.key || e.keyIdentifier || e.keyCode);
-			// normalize key
-			var keyName = '';
-			if (typeof k === 'string') keyName = k;
-			else if (typeof k === 'number') {
-				// keyCode fallback
-				if (k === 36) keyName = 'Home';
-				else if (k === 35) keyName = 'End';
-				else if (k === 33) keyName = 'PageUp';
-				else if (k === 34) keyName = 'PageDown';
-			}
+		    try {
+		        var k = e && (e.key || e.keyIdentifier || e.keyCode);
+		        var keyName = '';
+		        if (typeof k === 'string')
+		            keyName = k;
+		        else if (typeof k === 'number') {
+		            if (k === 36)
+		                keyName = 'Home';
+		            else if (k === 35)
+		                keyName = 'End';
+		            else if (k === 33)
+		                keyName = 'PageUp';
+		            else if (k === 34)
+		                keyName = 'PageDown';
+		        }
+		
+		        // Home -> scroll to top of modal
+		        if (keyName === 'Home') {
+		            e.preventDefault && e.preventDefault();
+		            try {
+		                if (Lampa.Modal.scroll && typeof Lampa.Modal.scroll().reset === 'function') {
+		                    Lampa.Modal.scroll().reset();
+		                } else {
+		                    var $r = Lampa.Modal.render && Lampa.Modal.render();
+		                    $r && $r.find && $r.find('.modal__body, .modal__content').scrollTop(0);
+		                }
+		            } catch (err) { /* ignore */
+		            }
+		            return;
+		        }
+		
+		        // End -> scroll to bottom of modal
+		        if (keyName === 'End') {
+		            e.preventDefault && e.preventDefault();
+		            try {
+		                var $r = Lampa.Modal.render && Lampa.Modal.render();
+		                var $body = $r && $r.find && $r.find('.modal__body, .modal__content');
+		                if ($body && $body.length) {
+		                    var el = $body[0];
+		                    if (typeof el.scrollTo === 'function')
+		                        el.scrollTo(0, el.scrollHeight);
+		                    else
+		                        el.scrollTop = el.scrollHeight;
+		                }
+		            } catch (err) { /* ignore */
+		            }
+		            return;
+		        }
+		
+		        // PageUp / ChannelUp -> previous page (if exists)
+		        if (keyName === 'PageDown' || keyName === 'ChannelDown') {
+		            e.preventDefault && e.preventDefault();
+		            if (kpId && currentPage > 1)
+		                fetchPage(currentPage - 1);
+		            return;
+		        }
+		
+		        // PageDown / ChannelDown -> next page (if exists)
+		        if (keyName === 'PageUp' || keyName === 'ChannelUp') {
+		            e.preventDefault && e.preventDefault();
+		            if (kpId && currentPage < totalPages)
+		                fetchPage(currentPage + 1);
+		            return;
+		        }
+		    } catch (err) {
+		        // ignore
+		    }
 
-			// handle keyboard
-			try {
-				if ((keyName === 'Home')) {
-					e.preventDefault && e.preventDefault();
-					if (kpId && currentPage !== 1) fetchPage(1);
-					return;
-				}
-				if ((keyName === 'End')) {
-					e.preventDefault && e.preventDefault();
-					if (kpId && currentPage !== totalPages) fetchPage(totalPages);
-					return;
-				}
-				// support PageUp/PageDown and remote ChannelUp/ChannelDown
-				if (keyName === 'PageUp' || keyName === 'ChannelUp') {
-					e.preventDefault && e.preventDefault();
-					if (kpId && currentPage !== 1) fetchPage(1);
-					return;
-				}
-				if (keyName === 'PageDown' || keyName === 'ChannelDown') {
-					e.preventDefault && e.preventDefault();
-					if (kpId && currentPage !== totalPages) fetchPage(totalPages);
-					return;
-				}
-			} catch (err) {
-				// ignore
-			}
-		}
 
 		function updateFooterButtonsVisibility() {
 			var $render = Lampa.Modal.render && Lampa.Modal.render();
