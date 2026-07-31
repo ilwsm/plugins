@@ -210,6 +210,28 @@
 		var kpId = null;
 		var kpHeaders = null;
 
+		function updateFooterButtonsVisibility() {
+			var $render = Lampa.Modal.render && Lampa.Modal.render();
+			if (!$render || !$render.length) return;
+			var $footerBtns = $render.find('.modal__footer .modal__button');
+			if (!$footerBtns.length) return;
+
+			// Apply small style locally for this modal
+			$footerBtns.css({ padding: '0.4em 0.7em', 'font-size': '1em' });
+
+			if (totalPages <= 1) {
+				$footerBtns.hide();
+				return;
+			}
+
+			$footerBtns.show();
+			var $prev = $footerBtns.first();
+			var $next = $footerBtns.last();
+
+			if (currentPage <= 1) $prev.hide(); else $prev.show();
+			if (currentPage >= totalPages) $next.hide(); else $next.show();
+		}
+
 		function fetchPage(page) {
 			var network = new Lampa.Reguest();
 			network.timeout(15000);
@@ -224,6 +246,26 @@
 				} else {
 					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
 				}
+
+				// After updating content: reset scroll to top
+				try {
+					if (Lampa.Modal.scroll && typeof Lampa.Modal.scroll().reset === 'function') {
+						Lampa.Modal.scroll().reset();
+					} else {
+						var $render = Lampa.Modal.render && Lampa.Modal.render();
+						$render && $render.find && $render.find('.modal__body, .modal__content').scrollTop(0);
+					}
+				} catch (e) {
+					// ignore
+				}
+
+				// Update footer buttons visibility based on pages/current
+				try {
+					updateFooterButtonsVisibility();
+				} catch (e) {
+					// ignore
+				}
+
 			}, function (jqXHR) {
 				Lampa.Modal.update(loading(describeApiError(network, jqXHR) + '. Фильм: "' + title + '", KP id: ' + kpId));
 			}, false, { headers: kpHeaders });
@@ -253,6 +295,20 @@
 				Lampa.Modal.close();
 			}
 		});
+
+		// Initially style and hide footer buttons until we know pages
+		try {
+			var $renderOnce = Lampa.Modal.render && Lampa.Modal.render();
+			if ($renderOnce && $renderOnce.length) {
+				var $footerBtns = $renderOnce.find('.modal__footer .modal__button');
+				if ($footerBtns && $footerBtns.length) {
+					$footerBtns.css({ padding: '0.4em 0.7em', 'font-size': '1em' });
+					$footerBtns.hide();
+				}
+			}
+		} catch (e) {
+			// ignore
+		}
 
 		if (!movie) {
 			Lampa.Modal.update(loading('Нет данных о фильме'));
