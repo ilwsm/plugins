@@ -181,14 +181,6 @@
 		return wrap;
 	}
 
-																		  
-																	   
-															
-							
-											 
-																		
-  
-
 	function loading(text) {
 		return $('<div style="padding:1em; text-align:center;"></div>').text(text);
 	}
@@ -267,20 +259,10 @@
 			return;
 		}
 
-											   
-
 		findKpId(movie, function (foundId, headers) {
 			kpId = foundId;
 			kpHeaders = headers;
 			fetchPage(1);
-												  
-													  
-			
-																													  
-	 
-						
-																													
-								   
 		}, function (apiError) {
 			Lampa.Modal.update(loading((apiError || 'Не удалось найти фильм на Кинопоиске') + '. Фильм: "' + title + '"'));
 		});
