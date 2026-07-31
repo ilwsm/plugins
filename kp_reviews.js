@@ -278,7 +278,7 @@
 		    } catch (err) {
 		        // ignore
 		    }
-
+		}
 
 		function updateFooterButtonsVisibility() {
 			var $render = Lampa.Modal.render && Lampa.Modal.render();
