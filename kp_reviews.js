@@ -259,21 +259,14 @@
 
             // End -> scroll to bottom of modal
             if (keyName === 'End') {
-                e.preventDefault && e.preventDefault();
-                try {
-                    var $render = Lampa.Modal.render && Lampa.Modal.render();
-                    if ($render && $render.length) {
-                        // Приоритет: сначала modal__body, потом modal__content
-                        var $body = $render.find('.modal__body');
-                        if (!$body.length) {
-                            $body = $render.find('.modal__content');
-                        }
+                e.preventDefault();
+                e.stopPropagation();
 
-                        if ($body && $body.length) {
-                            $body.scrollTop($body[0].scrollHeight);
-                        }
-                    }
-                } catch (err) { /* ignore */ }
+                var scroll = Lampa.Modal.scroll();
+                var vp = scroll.vieport();
+
+                scroll.shift(vp.body);
+
                 return;
             }
 
@@ -294,6 +287,8 @@
                 }
                 return;
             }
+
+
         }
 
         function updateFooterButtonsVisibility() {
