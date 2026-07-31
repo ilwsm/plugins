@@ -150,7 +150,7 @@
 			var text = (review.description || '').trim();
 			var type = review.type; // POSITIVE / NEGATIVE / NEUTRAL
 
-			if (text.length > MAX_LENGTH) text = text.slice(0, MAX_LENGTH) + '…';
+			//if (text.length > MAX_LENGTH) text = text.slice(0, MAX_LENGTH) + '…';
 
 			var typeLabel = type === 'POSITIVE' ? ' — положительная' : type === 'NEGATIVE' ? ' — отрицательная' : type === 'NEUTRAL' ? ' — нейтральная' : '';
 
@@ -160,12 +160,21 @@
 			var head = $('<div style="font-weight:bold; font-size:1.25em; margin-bottom:0.2em;"></div>').text(title || author);
 			var sub = $('<div style="opacity:0.6; font-size:1em; margin-bottom:0.5em;"></div>').text(author + typeLabel);
 			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').text(text);
+			var body = $('<div style="white-space:pre-line; opacity:0.85; font-size:1.15em; line-height:1.5;"></div>').html(safeFormat(text));
 
 			card.append(head).append(sub).append(body);
 			wrap.append(card);
 		});
 
 		return wrap;
+	}
+
+	// Escapes all HTML, then re-enables a small whitelist of safe formatting
+	// tags only (no attributes allowed), so things like <i>...</i> render
+	// properly without allowing arbitrary/unsafe HTML through.
+	function safeFormat(text) {
+		var escaped = $('<div>').text(text).html();
+		return escaped.replace(/&lt;(\/?)(b|i|em|strong|br)&gt;/gi, '<$1$2>');
 	}
 
 	function loading(text) {
