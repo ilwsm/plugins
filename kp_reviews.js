@@ -262,34 +262,18 @@
                 e.preventDefault && e.preventDefault();
                 try {
                     var $render = Lampa.Modal.render && Lampa.Modal.render();
-                    console.log('$render:', $render);
-                    console.log('$render.length:', $render && $render.length);
-
                     if ($render && $render.length) {
-                        var $body = $render.find('.modal__body, .modal__content');
-                        console.log('$body found:', $body);
-                        console.log('$body.length:', $body && $body.length);
+                        // Приоритет: сначала modal__body, потом modal__content
+                        var $body = $render.find('.modal__body');
+                        if (!$body.length) {
+                            $body = $render.find('.modal__content');
+                        }
 
                         if ($body && $body.length) {
-                            console.log('scrollHeight:', $body[0].scrollHeight);
                             $body.scrollTop($body[0].scrollHeight);
-                            console.log('scrollTop set to:', $body.scrollTop());
-                        } else {
-                            console.log('Trying alternative selectors...');
-                            var alternatives = ['.modal__body', '.modal__content', '.modal', '[class*="modal"]'];
-                            for (var i = 0; i < alternatives.length; i++) {
-                                var $alt = $render.find(alternatives[i]);
-                                console.log('Trying ' + alternatives[i] + ':', $alt.length);
-                                if ($alt.length) {
-                                    console.log('Found with selector:', alternatives[i]);
-                                    break;
-                                }
-                            }
                         }
                     }
-                } catch (err) {
-                    console.log('Error in End handler:', err);
-                }
+                } catch (err) { /* ignore */ }
                 return;
             }
 
