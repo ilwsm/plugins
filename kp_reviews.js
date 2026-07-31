@@ -221,12 +221,7 @@
 			network.timeout(15000);
 			network.silent(KP_PROX + 'https://kinopoiskapiunofficial.tech/api/v2.2/films/' + kpId + '/reviews', function (data) {
 				if (data && data.items && data.items.length) {
-					// Prefer longer, more substantial reviews first.
-					var sorted = data.items.slice().sort(function (a, b) {
-						return (b.description || '').length - (a.description || '').length;
-					});
-
-					Lampa.Modal.update(buildReviewsHtml(sorted));
+					Lampa.Modal.update(buildReviewsHtml(data.items));
 				} else {
 					Lampa.Modal.update(loading('Рецензии не найдены. Фильм: "' + title + '", KP id: ' + kpId));
 				}
