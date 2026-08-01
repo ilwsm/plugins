@@ -242,7 +242,7 @@
             }
 
             // Home -> scroll to top of modal
-            if (keyName === 'Home') {
+            if (keyName === 'Home' || keyName === '0') {
                 e.preventDefault && e.preventDefault();
                 try {
                     if (Lampa.Modal.scroll && typeof Lampa.Modal.scroll().reset === 'function') {
