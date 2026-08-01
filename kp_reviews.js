@@ -258,7 +258,7 @@
             }
 
             // End -> scroll to bottom of modal
-            if (keyName === 'End') {
+            if (keyName === 'End' || keyName === 'BrowserFavorites' || keyName === 'Info') {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -271,7 +271,7 @@
             }
 
             // PageUp -> previous page (if exists)
-            if (keyName === 'PageUp') {
+            if (keyName === 'PageUp' || keyName === 'ChannelUp') {
                 e.preventDefault && e.preventDefault();
                 if (kpId && currentPage > 1) {
                     fetchPage(currentPage - 1);
@@ -280,7 +280,7 @@
             }
 
             // PageDown -> next page (if exists)
-            if (keyName === 'PageDown') {
+            if (keyName === 'PageDown' || keyName === 'ChannelDown') {
                 e.preventDefault && e.preventDefault();
                 if (kpId && currentPage < totalPages) {
                     fetchPage(currentPage + 1);
