@@ -306,27 +306,34 @@
                 'font-size': '1em'
             });
 
+            // NOTE: use the real Lampa "hide" class (display:none !important),
+            // not jQuery's .hide()/.show(). Lampa.Controller.collectionFocus()
+            // falls back to focusing the FIRST .selector under .modal__footer
+            // whenever the down-handler auto-jumps focus into the footer, and
+            // its fallback filter only excludes elements that carry the
+            // literal "hide" class (elem.classList.contains('hide')) - it has
+            // no idea about inline display:none. jQuery's .hide() sets inline
+            // display:none without adding that class, so a jQuery-hidden
+            // "Пред. страница" button still passed that filter and kept
+            // getting silently (re-)focused, which is why the transfer only
+            // ever failed on page 1 - the one page where that first button in
+            // DOM order is the one being hidden.
             if (totalPages <= 1) {
-                $footer.hide();
+                $footerBtns.toggleClass('hide', true);
+                $footer.toggleClass('hide', true);
                 return;
             }
 
-            $footer.show();
+            $footer.toggleClass('hide', false);
             var $prev = $footerBtns.first();
             var $next = $footerBtns.last();
 
-            if (currentPage <= 1)
-                $prev.hide();
-            else
-                $prev.show();
-            if (currentPage >= totalPages)
-                $next.hide();
-            else
-                $next.show();
+            $prev.toggleClass('hide', currentPage <= 1);
+            $next.toggleClass('hide', currentPage >= totalPages);
 
-            // if both buttons hidden then hide footer
-            if ($prev.is(':hidden') && $next.is(':hidden'))
-                $footer.hide();
+            // if both buttons hidden then hide footer too
+            if ($prev.hasClass('hide') && $next.hasClass('hide'))
+                $footer.toggleClass('hide', true);
         }
 
         function fetchPage(page) {
@@ -399,7 +406,11 @@
             }
         });
 
-        // Initially style and hide footer (or buttons) until we know pages
+        // Initially style and hide footer (or buttons) until we know pages.
+        // Mark the buttons themselves with the "hide" class too (see the
+        // comment in updateFooterButtonsVisibility) so they're correctly
+        // skipped if a down-press reaches the footer before page 1 has
+        // loaded and set real per-button visibility.
         try {
             var $renderOnce = Lampa.Modal.render && Lampa.Modal.render();
             if ($renderOnce && $renderOnce.length) {
@@ -410,7 +421,8 @@
                         padding: '0.4em 0.7em',
                         'font-size': '1em'
                     });
-                    $footerOnce.hide();
+                    $footerBtnsOnce.toggleClass('hide', true);
+                    $footerOnce.toggleClass('hide', true);
                 }
             }
         } catch (e) {
@@ -472,3 +484,4 @@
     if (!window.kp_reviews_plugin)
         startPlugin();
 })();
+/// 5698
