@@ -1022,9 +1022,27 @@
             storageSet(GENRES_CACHE_KEY, { genres: data.genres, ts: Date.now() });
             callback(filterGenres(data.genres));
         }, function (err) {
-            var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
-            notify('Shikimori: жанры не загружены (' + reason + ')');
-            callback([]);
+            // REST is a GET request, so it works in WebViews that reject GraphQL POST.
+            console.warn('[Shikimori] GraphQL genres request failed, trying REST fallback');
+            apiGetJson(getShikiHost() + '/api/genres', function (data) {
+                var genres = Array.isArray(data) ? data.filter(function (genre) {
+                    return genre && genre.entry_type === 'Anime';
+                }) : [];
+
+                if (!genres.length) {
+                    notify('Shikimori: сервер вернул пустой список жанров');
+                    callback([]);
+                    return;
+                }
+
+                console.log('[Shikimori] genres loaded through REST fallback:', genres.length);
+                storageSet(GENRES_CACHE_KEY, { genres: genres, ts: Date.now() });
+                callback(filterGenres(genres));
+            }, function () {
+                var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
+                notify('Shikimori: жанры не загружены (' + reason + ')');
+                callback([]);
+            });
         });
     }
 
