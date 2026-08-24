@@ -50,10 +50,10 @@
             contentType: 'application/json',
             dataType: 'json',
             timeout: 12000,
-            headers: { 'User-Agent': 'LampaShikimoriPlugin' },
             data: body,
             success: function (res) {
                 if (res && res.errors && res.errors.length) {
+                    console.error('[Shikimori] GraphQL error:', res.errors[0].message, 'query:', query);
                     if (error) error(res.errors[0].message);
                     else callback(null);
                     return;
@@ -61,6 +61,7 @@
                 callback(res && res.data ? res.data : null);
             },
             error: function (xhr) {
+                console.error('[Shikimori] GraphQL request failed:', xhr && xhr.status, xhr && xhr.statusText, 'url:', url);
                 if (error) error(xhr);
                 else callback(null);
             }
@@ -1009,13 +1010,16 @@
 
         gqlQuery('{ genres(entryType: Anime) { id name russian } }', function (data) {
             if (!data || !data.genres || !data.genres.length) {
+                notify('Shikimori: сервер вернул пустой список жанров');
                 callback([]);
                 return;
             }
 
             storageSet(GENRES_CACHE_KEY, { genres: data.genres, ts: Date.now() });
             callback(filterGenres(data.genres));
-        }, function () {
+        }, function (err) {
+            var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
+            notify('Shikimori: жанры не загружены (' + reason + ')');
             callback([]);
         });
     }
