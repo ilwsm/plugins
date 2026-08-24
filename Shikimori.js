@@ -23,6 +23,10 @@
     if (window.plugin_shikimori_ready) return;
     window.plugin_shikimori_ready = true;
 
+    if (window.console && window.console.log) {
+        window.console.log('[Shikimori] plugin loaded v3.2.0');
+    }
+
     var SETTINGS_KEY = 'shikimori_settings_v2';
     var GENRES_CACHE_KEY = 'shikimori_genres_cache_v1';
     var TMDB_CACHE_KEY = 'shikimori_tmdb_cache_v1';
