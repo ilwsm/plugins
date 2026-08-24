@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 1');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
