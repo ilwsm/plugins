@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 6');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 7');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
@@ -1193,6 +1193,9 @@
         var shikiYear = getAnimeYear(data);
         var desiredType = data.kind === 'movie' ? 'movie' : 'tv';
         var strictKinds = { ova: true, ona: true, special: true, tv_special: true, music: true, pv: true, cm: true };
+        var shikiTitles = [data.name, data.english, data.russian].filter(function (title) {
+            return !!title;
+        }).map(normalizeForCompare);
 
         notify('Поиск в базе...');
         searchTmdbMulti(queries, shikiYear, desiredType,
@@ -1203,7 +1206,14 @@
                 var countries = item.origin_country || [];
                 var isAnimation = genres.indexOf(16) !== -1;
                 var isJapanese = item.original_language === 'ja' || countries.indexOf('JP') !== -1;
+                var itemTitles = [item.title, item.name, item.original_title, item.original_name].filter(function (title) {
+                    return !!title;
+                }).map(normalizeForCompare);
+                var exactTitle = itemTitles.some(function (title) {
+                    return shikiTitles.indexOf(title) !== -1;
+                });
 
+                if (!exactTitle) return false;
                 if (strictKinds[data.kind] && item.media_type === 'tv') return isAnimation && isJapanese;
                 return isAnimation || isJapanese;
             }
