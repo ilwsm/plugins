@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 5');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 6');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
@@ -705,7 +705,7 @@
      *     function() { console.log('Not found'); }
      * );
      */
-    function searchTmdbMulti(queries, year, desiredType, onMatch, onDone) {
+    function searchTmdbMulti(queries, year, desiredType, onMatch, onDone, filter) {
         var index = 0;
         var bestMatch = null;
         var anyMatch = null;
@@ -726,7 +726,8 @@
                 var results = res && res.results ? res.results : [];
                 for (var i = 0; i < results.length; i++) {
                     var item = results[i];
-                    if ((item.media_type === 'tv' || item.media_type === 'movie') && item.poster_path && tmdbYearMatch(item, year)) {
+                    if ((item.media_type === 'tv' || item.media_type === 'movie') &&
+                        item.poster_path && tmdbYearMatch(item, year) && (!filter || filter(item))) {
                         if (!bestMatch && desiredType && item.media_type === desiredType) {
                             bestMatch = item;
                             finish();
@@ -1191,17 +1192,27 @@
 
         var shikiYear = getAnimeYear(data);
         var desiredType = data.kind === 'movie' ? 'movie' : 'tv';
+        var strictKinds = { ova: true, ona: true, special: true, tv_special: true, music: true, pv: true, cm: true };
 
         notify('Поиск в базе...');
         searchTmdbMulti(queries, shikiYear, desiredType,
             function (best) { openTmdb(best, data); },
-            function () { openLampaSearch(data); }
+            function () { openLampaSearch(data); },
+            function (item) {
+                var genres = item.genre_ids || [];
+                var countries = item.origin_country || [];
+                var isAnimation = genres.indexOf(16) !== -1;
+                var isJapanese = item.original_language === 'ja' || countries.indexOf('JP') !== -1;
+
+                if (strictKinds[data.kind] && item.media_type === 'tv') return isAnimation && isJapanese;
+                return isAnimation || isJapanese;
+            }
         );
     }
 
     /** Открыть встроенный поиск Lampa с названием аниме в качестве запроса. */
     function openLampaSearch(shiki) {
-        notify('Shikimori: Не найдено в TMDB, открыт ручной поиск');
+        notify('Shikimori: надёжное соответствие в TMDB не найдено, открыт ручной поиск');
 
         var query = titleOf(shiki);
 
