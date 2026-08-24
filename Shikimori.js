@@ -998,11 +998,7 @@
     }
 
 
-    /**
-     * Загрузить жанры из Shikimori GraphQL API (с локальным кешем на 24ч).
-     *
-     * @param {Function} callback - Вызывается с отфильтрованным списком жанров
-     */
+    /** Загрузить жанры из Shikimori REST API (с локальным кешем на 24ч). */
     function loadGenres(callback) {
         var cache = storageGet(GENRES_CACHE_KEY, null);
         var DAY_MS = 86400000;
@@ -1012,88 +1008,56 @@
             return;
         }
 
-        gqlQuery('{ genres(entryType: Anime) { id name russian } }', function (data) {
-            if (!data || !data.genres || !data.genres.length) {
+        apiGetJson(getShikiHost() + '/api/genres', function (data) {
+            var genres = Array.isArray(data) ? data.filter(function (genre) {
+                return genre && genre.entry_type === 'Anime';
+            }) : [];
+
+            if (!genres.length) {
                 notify('Shikimori: сервер вернул пустой список жанров');
                 callback([]);
                 return;
             }
 
-            storageSet(GENRES_CACHE_KEY, { genres: data.genres, ts: Date.now() });
-            callback(filterGenres(data.genres));
+            storageSet(GENRES_CACHE_KEY, { genres: genres, ts: Date.now() });
+            callback(filterGenres(genres));
         }, function (err) {
-            // REST is a GET request, so it works in WebViews that reject GraphQL POST.
-            console.warn('[Shikimori] GraphQL genres request failed, trying REST fallback');
-            apiGetJson(getShikiHost() + '/api/genres', function (data) {
-                var genres = Array.isArray(data) ? data.filter(function (genre) {
-                    return genre && genre.entry_type === 'Anime';
-                }) : [];
-
-                if (!genres.length) {
-                    notify('Shikimori: сервер вернул пустой список жанров');
-                    callback([]);
-                    return;
-                }
-
-                console.log('[Shikimori] genres loaded through REST fallback:', genres.length);
-                storageSet(GENRES_CACHE_KEY, { genres: genres, ts: Date.now() });
-                callback(filterGenres(genres));
-            }, function () {
-                var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
-                notify('Shikimori: жанры не загружены (' + reason + ')');
-                callback([]);
-            });
+            var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
+            console.error('[Shikimori] REST genres request failed:', reason);
+            notify('Shikimori: жанры не загружены (' + reason + ')');
+            callback([]);
         });
     }
 
-    /**
-     * Запрос списка аниме из Shikimori GraphQL API.
-     *
-     * Использует GraphQL вместо REST для получения полных URL постеров.
-     *
-     * @param {Object} params - Параметры запроса
-     * @param {Function} oncomplete - Вызывается с массивом маппинга аниме
-     * @param {Function} [onerror] - Колбэк ошибки (опционально)
-     */
+    /** Запрос списка аниме из Shikimori REST API. */
     function requestAnime(params, oncomplete, onerror) {
         var page = parseInt(params.page, 10) || 1;
         var sort = params.sort || readSettings().default_sort;
+        var query = [
+            'limit=' + PAGE_LIMIT,
+            'page=' + page,
+            'order=' + encodeURIComponent(sort)
+        ];
 
-        var args = [];
-        args.push('limit: ' + PAGE_LIMIT);
-        args.push('page: ' + page);
+        if (params.search) query.push('search=' + encodeURIComponent(params.search));
+        if (params.kind) query.push('kind=' + encodeURIComponent(params.kind));
+        if (params.status) query.push('status=' + encodeURIComponent(params.status));
+        if (params.season) query.push('season=' + encodeURIComponent(params.season));
+        if (params.genre) query.push('genre=' + encodeURIComponent(params.genre));
 
-        var orderMap = { popularity: 'popularity', ranked: 'ranked', aired_on: 'aired_on', name: 'name' };
-        if (orderMap[sort]) args.push('order: ' + orderMap[sort]);
-
-        if (params.search) args.push('search: "' + params.search.replace(/"/g, '\\"') + '"');
-        if (params.kind) args.push('kind: "' + params.kind + '"');
-        if (params.status) args.push('status: "' + params.status + '"');
-        if (params.season) args.push('season: "' + params.season + '"');
-        if (params.genre) args.push('genre: "' + params.genre + '"');
-
-        var query = '{ animes(' + args.join(', ') + ') { ' +
-            'id name russian english kind status score ' +
-            'episodes episodesAired season ' +
-            'poster { mainUrl main2xUrl previewUrl miniUrl originalUrl } ' +
-            'genres { id name russian } ' +
-            '} }';
-
-        gqlQuery(query, function (data) {
-            if (!data || !data.animes) {
-                oncomplete([]);
-                return;
-            }
+        apiGetJson(getShikiHost() + '/api/animes?' + query.join('&'), function (data) {
+            if (!Array.isArray(data)) data = [];
 
             var mapped = [];
 
-            for (var i = 0; i < data.animes.length; i++) {
-                var mappedItem = mapShikiAnime(data.animes[i]);
+            for (var i = 0; i < data.length; i++) {
+                var mappedItem = mapShikiAnime(data[i]);
                 if (mappedItem) mapped.push(mappedItem);
             }
 
             oncomplete(mapped);
-        }, function () {
+        }, function (err) {
+            console.error('[Shikimori] REST catalog request failed:', err && err.status, err && err.statusText);
             notify('Shikimori: не удалось загрузить каталог');
             if (onerror) onerror();
         });
@@ -3159,27 +3123,17 @@
         };
     }
 
-    /** Загрузить аниме из Shikimori по ID через GraphQL. */
+    /** Загрузить аниме из Shikimori по ID через REST API. */
     function fetchShikiAnimeById(id, callback) {
         if (!id) {
             callback(null);
             return;
         }
 
-        var query = '{ animes(ids: "' + String(id) + '") { ' +
-            'id name russian english kind status score ' +
-            'episodes episodesAired season ' +
-            'poster { mainUrl main2xUrl previewUrl miniUrl originalUrl } ' +
-            'genres { id name russian } ' +
-            '} }';
-
-        gqlQuery(query, function (data) {
-            if (data && data.animes && data.animes.length) {
-                callback(mapShikiAnime(data.animes[0]));
-            } else {
-                callback(null);
-            }
-        }, function () {
+        apiGetJson(getShikiHost() + '/api/animes/' + encodeURIComponent(id), function (data) {
+            callback(data && data.id ? mapShikiAnime(data) : null);
+        }, function (err) {
+            console.error('[Shikimori] REST anime request failed:', err && err.status, err && err.statusText);
             callback(null);
         });
     }
