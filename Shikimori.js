@@ -23,10 +23,7 @@
     if (window.plugin_shikimori_ready) return;
     window.plugin_shikimori_ready = true;
 
-    if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 9');
-    }
-
+    var DEBUG = false;
     var SETTINGS_KEY = 'shikimori_settings_v2';
     var GENRES_CACHE_KEY = 'shikimori_genres_cache_v1';
     var TMDB_CACHE_KEY = 'shikimori_tmdb_cache_v1';
@@ -56,6 +53,12 @@
     var posterRequests = {};
     var fullResolveCache = {};
     var fullPollId = null;
+
+    function debug() {
+        if (DEBUG && window.console && window.console.log) {
+            window.console.log.apply(window.console, arguments);
+        }
+    }
 
     // ─── GraphQL Helper ──────────────────────────────────────────────
 
@@ -538,10 +541,10 @@
      * @param {Function} [error] - Колбэк ошибки (опционально)
      */
     function apiGetJson(url, success, error) {
-        console.log('[Shikimori] GET start:', url);
+        debug('[Shikimori] GET start:', url);
 
         function onSuccess(data) {
-            console.log('[Shikimori] GET success:', url, 'type:', Object.prototype.toString.call(data), 'length:', data && data.length);
+            debug('[Shikimori] GET success:', url, 'type:', Object.prototype.toString.call(data), 'length:', data && data.length);
             success(data);
         }
 
@@ -1027,18 +1030,14 @@
 
         if (cache && cache.genres && cache.genres.length && cache.ts && (Date.now() - cache.ts) < DAY_MS) {
             var cachedGenres = filterGenres(cache.genres);
-            console.log('[Shikimori] genres cache hit:', cache.genres.length, 'filtered:', cachedGenres.length);
             callback(cachedGenres);
             return;
         }
 
-        console.log('[Shikimori] genres cache miss, loading REST API');
         apiGetJson(getShikiHost() + '/api/genres', function (data) {
             var genres = Array.isArray(data) ? data.filter(function (genre) {
                 return genre && genre.entry_type === 'Anime';
             }) : [];
-
-            console.log('[Shikimori] genres REST parsed:', genres.length);
 
             if (!genres.length) {
                 notify('Shikimori: сервер вернул пустой список жанров');
@@ -1048,7 +1047,6 @@
 
             storageSet(GENRES_CACHE_KEY, { genres: genres, ts: Date.now() });
             genres = filterGenres(genres);
-            console.log('[Shikimori] genres ready after adult filter:', genres.length);
             callback(genres);
         }, function (err) {
             var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
