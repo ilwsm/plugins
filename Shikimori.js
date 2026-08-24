@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 8');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 9');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
@@ -1011,6 +1011,12 @@
             var rus = String(g.russian || '').toLowerCase().trim();
             return !adultGenres[name] && !adultGenres[rus];
         });
+    }
+
+    function isAdultGenre(genre) {
+        var name = String(genre && genre.name || '').toLowerCase().trim();
+        var rus = String(genre && genre.russian || '').toLowerCase().trim();
+        return !!(adultGenres[name] || adultGenres[rus]);
     }
 
 
@@ -2570,6 +2576,8 @@
             for (var i = 0; i < genres.length; i++) {
                 if (genres[i] && genres[i].id) {
                     var genreTitle = genres[i].russian || genres[i].name || genres[i].id;
+
+                    if (isAdultGenre(genres[i])) genreTitle = '🍓 ' + genreTitle;
 
                     items.push({
                         title: selectedTitle(String(params.genre || '') === String(genres[i].id), genreTitle),
