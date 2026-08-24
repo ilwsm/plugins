@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 1');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 3');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
@@ -523,15 +523,29 @@
      * @param {Function} [error] - Колбэк ошибки (опционально)
      */
     function apiGetJson(url, success, error) {
+        console.log('[Shikimori] GET start:', url);
+
+        function onSuccess(data) {
+            console.log('[Shikimori] GET success:', url, 'type:', Object.prototype.toString.call(data), 'length:', data && data.length);
+            success(data);
+        }
+
+        function onError(xhr) {
+            console.error('[Shikimori] GET failed:', url, 'status:', xhr && xhr.status, 'text:', xhr && xhr.statusText);
+            if (error) error(xhr);
+        }
+
         if (window.Lampa && typeof Lampa.Reguest === 'function') {
             try {
                 var network = new Lampa.Reguest();
                 if (typeof network.timeout === 'function') network.timeout(8000);
                 if (typeof network.silent === 'function') {
-                    network.silent(url, success, error || function () {});
+                    network.silent(url, onSuccess, onError);
                     return;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('[Shikimori] Lampa.Reguest exception:', e && e.message ? e.message : e);
+            }
         }
 
         if (window.$) {
@@ -539,11 +553,12 @@
                 url: url,
                 dataType: 'json',
                 timeout: 8000,
-                success: success,
-                error: error || function () {}
+                success: onSuccess,
+                error: onError
             });
         } else {
             console.error('Shikimori: no network method available');
+            onError({ status: 0, statusText: 'no network method available' });
         }
     }
 
@@ -1004,14 +1019,19 @@
         var DAY_MS = 86400000;
 
         if (cache && cache.genres && cache.genres.length && cache.ts && (Date.now() - cache.ts) < DAY_MS) {
-            callback(filterGenres(cache.genres));
+            var cachedGenres = filterGenres(cache.genres);
+            console.log('[Shikimori] genres cache hit:', cache.genres.length, 'filtered:', cachedGenres.length);
+            callback(cachedGenres);
             return;
         }
 
+        console.log('[Shikimori] genres cache miss, loading REST API');
         apiGetJson(getShikiHost() + '/api/genres', function (data) {
             var genres = Array.isArray(data) ? data.filter(function (genre) {
                 return genre && genre.entry_type === 'Anime';
             }) : [];
+
+            console.log('[Shikimori] genres REST parsed:', genres.length);
 
             if (!genres.length) {
                 notify('Shikimori: сервер вернул пустой список жанров');
@@ -1020,7 +1040,9 @@
             }
 
             storageSet(GENRES_CACHE_KEY, { genres: genres, ts: Date.now() });
-            callback(filterGenres(genres));
+            genres = filterGenres(genres);
+            console.log('[Shikimori] genres ready after adult filter:', genres.length);
+            callback(genres);
         }, function (err) {
             var reason = (err && err.status) ? ('HTTP ' + err.status) : 'сетевая ошибка';
             console.error('[Shikimori] REST genres request failed:', reason);
