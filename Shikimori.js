@@ -24,7 +24,7 @@
     window.plugin_shikimori_ready = true;
 
     if (window.console && window.console.log) {
-        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 4');
+        window.console.log('[Shikimori] plugin loaded v3.2.0. Try 5');
     }
 
     var SETTINGS_KEY = 'shikimori_settings_v2';
@@ -37,7 +37,22 @@
     var TMDB_API_KEY = '4ef0d7355d9ffb5151e987764708ce96';
     var PAGE_LIMIT = 48;
 
-    var adultGenres = { hentai: true, erotica: true, yaoi: true, yuri: true };
+    var adultGenres = {
+        hentai: true,
+        erotica: true,
+        yaoi: true,
+        yuri: true,
+        'shounen ai': true,
+        'shoujo ai': true,
+        'boys love': true,
+        'girls love': true,
+        'хентай': true,
+        'эротика': true,
+        'яой': true,
+        'юри': true,
+        'сёнен-ай': true,
+        'сёдзё-ай': true
+    };
     var posterRequests = {};
     var fullResolveCache = {};
     var fullPollId = null;
@@ -989,26 +1004,11 @@
         if (!genres || !genres.length) return [];
         if (!readSettings().hide_adult) return genres;
 
-        var adultKeys = adultGenres;
-        // Актуальные имена API (Boys Love / Girls Love и т.п.)
-        var extraAdult = {
-            'boys love': true,
-            'girls love': true,
-            'сёнен-ай': true,
-            'сёдзё-ай': true,
-            'хентай': true,
-            'эротика': true,
-            'yaoi': true,
-            'yuri': true
-        };
-
         return genres.filter(function (g) {
             if (!g) return false;
             var name = String(g.name || '').toLowerCase().trim();
             var rus = String(g.russian || '').toLowerCase().trim();
-            if (adultKeys[name] || adultKeys[rus]) return false;
-            if (extraAdult[name] || extraAdult[rus]) return false;
-            return true;
+            return !adultGenres[name] && !adultGenres[rus];
         });
     }
 
