@@ -1058,6 +1058,11 @@
 
     /** Запрос списка аниме из Shikimori REST API. */
     function requestAnime(params, oncomplete, onerror) {
+        if (params.mylist) {
+            requestMyList(params, oncomplete, onerror);
+            return;
+        }
+
         var page = parseInt(params.page, 10) || 1;
         var sort = params.sort || readSettings().default_sort;
         var query = [
@@ -1088,6 +1093,43 @@
             notify('Shikimori: не удалось загрузить каталог');
             if (onerror) onerror();
         });
+    }
+
+    function requestMyList(params, oncomplete, onerror) {
+        var page = parseInt(params.page, 10) || 1;
+
+        function load(rates) {
+            var ids = [];
+
+            for (var animeId in rates) {
+                if (rates.hasOwnProperty(animeId) && rates[animeId].status === params.mylist) ids.push(animeId);
+            }
+
+            ids = ids.slice((page - 1) * PAGE_LIMIT, page * PAGE_LIMIT);
+
+            if (!ids.length) {
+                oncomplete([]);
+                return;
+            }
+
+            apiGetJson(getShikiHost() + '/api/animes?limit=' + PAGE_LIMIT + '&ids=' + encodeURIComponent(ids.join(',')), function (data) {
+                if (!Array.isArray(data)) data = [];
+
+                var byId = {};
+                for (var i = 0; i < data.length; i++) byId[data[i].id] = data[i];
+
+                var mapped = [];
+                for (var j = 0; j < ids.length; j++) {
+                    var item = mapShikiAnime(byId[ids[j]]);
+                    if (item) mapped.push(item);
+                }
+
+                oncomplete(mapped);
+            }, onerror);
+        }
+
+        if (userRatesCache) load(userRatesCache);
+        else fetchAllUserRates(load);
     }
 
     // ─── Navigation ────────────────────────────────────────────────────
