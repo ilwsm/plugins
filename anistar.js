@@ -31,7 +31,8 @@
   }
 
   function proxyUrl(url) {
-    var idx = getSetting('proxy', 0);
+    var idx = parseInt(getSetting('proxy', 0), 10);
+    if (isNaN(idx)) idx = 0;
     var base = (idx >= 0 && idx < PROXY_LIST.length) ? PROXY_LIST[idx] : PROXY_LIST[0];
     if (!base) return url; // no proxy selected - direct request
     return base + encodeURIComponent(url);
@@ -117,7 +118,8 @@
         callback(typeof data === 'string' ? data : '');
       }
     }, function (err) {
-      var idx = getSetting('proxy', 0);
+      var idx = parseInt(getSetting('proxy', 0), 10);
+      if (isNaN(idx)) idx = 0;
       var nextIdx = (idx + 1) % PROXY_LIST.length;
       setSetting('proxy', nextIdx);
       var px2 = proxyUrl(url);
@@ -146,29 +148,15 @@
 
   function parseCatalogItems(html) {
     var items = [];
-    var blocks = html.match(/<div[^>]*class="news"[^>]*itemscope[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/gi) || [];
-
-    if (blocks.length === 0) {
-      blocks = html.match(/<div[^>]*class="news"[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi) || [];
-    }
-    if (blocks.length === 0) {
-      var parts = html.split(/<div[^>]*class="news"/i);
-      for (var i = 1; i < parts.length; i++) {
-        var chunk = '<div class="news"' + parts[i];
-        var end = chunk.indexOf('</div>\n</div>\n</div>');
-        if (end > 0) blocks.push(chunk.substring(0, end + '</div>\n</div>\n</div>'.length));
-        else {
-          end = chunk.indexOf('</div>');
-          if (end > 0) blocks.push(chunk.substring(0, Math.min(end + 200, chunk.length)));
-          else blocks.push(chunk);
-        }
-      }
-    }
+    var parts = html.split(/<div\s+class=["']news["'][^>]*>/i);
+    var blocks = parts.slice(1).map(function (part) {
+      return '<div class="news">' + part;
+    });
 
     blocks.forEach(function (block) {
       var item = {};
 
-      var titleLink = block.match(/<div class="title_left">\s*<a[^>]*href=["\']([^"\']+)["\'][^>]*>([^<]+)<\/a>/i);
+      var titleLink = block.match(/<div\s+class=["']title_left["'][^>]*>\s*<a[^>]*href=["\']([^"\']+)["\'][^>]*>([\s\S]*?)<\/a>/i);
       if (!titleLink) {
         titleLink = block.match(/<a[^>]*href=["\']([^"\']*\.html)["\'][^>]*>([^<]+)<\/a>/i);
       }
@@ -364,7 +352,7 @@
   var Api = {
     catalog: function (page, callback) {
       var url = page > 1 ? BASE + '/page/' + page + '/' : BASE + '/';
-      var cacheKey = 'catalog_' + page;
+      var cacheKey = 'catalog_v2_' + page;
       var cached = cacheGet(cacheKey, 30 * 60 * 1000);
       if (cached) return callback(cached);
 
@@ -383,12 +371,12 @@
         var data = { items: items, pagination: pagination };
         cacheSet(cacheKey, data);
         callback(data);
-      });
+      }, true);
     },
 
     catalogCategory: function (category, page, callback) {
       var pageUrl = page > 1 ? BASE + '/' + category + '/page/' + page + '/' : BASE + '/' + category + '/';
-      var cacheKey = 'cat_' + category + '_' + page;
+      var cacheKey = 'cat_v2_' + category + '_' + page;
       var cached = cacheGet(cacheKey, 30 * 60 * 1000);
       if (cached) return callback(cached);
 
@@ -407,7 +395,7 @@
         var data = { items: items, pagination: pagination };
         cacheSet(cacheKey, data);
         callback(data);
-      });
+      }, true);
     },
 
     search: function (query, callback) {
