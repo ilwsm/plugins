@@ -5,31 +5,6 @@
   window.anistar_online_plugin = true;
 
   var BASE = 'https://anistar.org';
-  var PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    'https://api.codetabs.com/v1/proxy?quest=',
-    ''
-  ];
-
-  function setting(key, fallback) {
-    try { return Lampa.Storage.get('anistar_' + key, fallback); } catch (e) { return fallback; }
-  }
-
-  function saveSetting(key, value) {
-    try { Lampa.Storage.set('anistar_' + key, value); } catch (e) {}
-  }
-
-  function proxyUrl(url, index) {
-    var proxy = PROXIES[index];
-    return proxy ? proxy + encodeURIComponent(url) : url;
-  }
-
-  function proxyStart() {
-    var index = parseInt(setting('proxy', 0), 10);
-    return isNaN(index) || index < 0 || index >= PROXIES.length ? 0 : index;
-  }
-
   function absolute(url, ref) {
     if (!url) return '';
     if (/^https?:\/\//i.test(url)) return url;
@@ -56,33 +31,25 @@
     return '';
   }
 
-  function request(url, callback, attempt) {
-    attempt = attempt == null ? proxyStart() : attempt;
-    if (attempt >= PROXIES.length) return callback('');
-
+  function request(url, callback) {
     var req = new Lampa.Reguest();
     req.timeout(20000);
-    req.get(proxyUrl(url, attempt), function (data) {
+    req.get(url, function (data) {
       var html = responseText(data);
-      if (html && !/Just a moment|cf-chl-|cloudflare/i.test(html)) return callback(html);
-      request(url, callback, attempt + 1);
+      callback(html && !/Just a moment|cf-chl-|cloudflare/i.test(html) ? html : '');
     }, function () {
-      request(url, callback, attempt + 1);
+      callback('');
     }, { type: 'arraybuffer' });
   }
 
-  function requestPost(url, body, callback, attempt) {
-    attempt = attempt == null ? proxyStart() : attempt;
-    if (attempt >= PROXIES.length) return callback('');
-
+  function requestPost(url, body, callback) {
     var req = new Lampa.Reguest();
     req.timeout(20000);
-    req.post(proxyUrl(url, attempt), body, function (data) {
+    req.post(url, body, function (data) {
       var html = responseText(data);
-      if (html && !/Just a moment|cf-chl-|cloudflare/i.test(html)) return callback(html);
-      requestPost(url, body, callback, attempt + 1);
+      callback(html && !/Just a moment|cf-chl-|cloudflare/i.test(html) ? html : '');
     }, function () {
-      requestPost(url, body, callback, attempt + 1);
+      callback('');
     });
   }
 
@@ -197,10 +164,6 @@
       selectTitle = object.search || object.movie && object.movie.title || selectTitle;
       component.loading(true);
       requestPost(BASE + '/index.php?do=search', 'story=' + encodeURIComponent(selectTitle) + '&do=search&subaction=search', function (html) {
-        if (!html) {
-          request(BASE + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(selectTitle), showResults);
-          return;
-        }
         showResults(html);
       });
 
@@ -308,26 +271,30 @@
     if (!event || event.type !== 'complite' || !event.data || !event.data.movie) return;
     var page = event.object && event.object.activity && event.object.activity.render();
     if (!page || page.find('.anistar-online-button').length) return;
-    var button = $('<div class="full-start__button selector anistar-online-button" title="AniStar Онлайн">' +
-      '<span> AniStar Онлайн</span></div>');
+    var button = $('<div class="full-start__button selector anistar-online-button" title="Смотреть на AniStar">' +
+      '<span> AniStar</span></div>');
     button.on('hover:enter', function () { openOnline(event.data.movie); });
-    var buttons = page.find('.full-start__buttons, .full-start-new__buttons, .full-start__buttons-line').first();
-    if (buttons.length) buttons.append(button); else page.find('.full-start__body, .full-start-new__body').first().append(button);
+    var watch = page.find('.view--torrent').first();
+    if (watch.length) watch.after(button); else {
+      var buttons = page.find('.full-start__buttons, .full-start-new__buttons, .full-start__buttons-line').first();
+      if (buttons.length) buttons.append(button); else page.find('.full-start__body, .full-start-new__body').first().append(button);
+    }
   }
 
   if (Lampa.Listener && Lampa.Listener.follow) Lampa.Listener.follow('full', addFullButton);
 
-  Lampa.SettingsApi.addComponent({
-    component: 'anistar',
-    name: 'AniStar',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/></svg>'
-  });
-  Lampa.SettingsApi.addParam({
-    component: 'anistar',
-    param: { name: 'anistar_proxy', type: 'select', values: { '0': 'allorigins.win', '1': 'corsproxy.io', '2': 'codetabs.com', '3': 'Без прокси' }, default: '0' },
-    field: { name: 'Прокси-сервер', description: 'Прокси для загрузки AniStar' },
-    onChange: function (value) { saveSetting('proxy', parseInt(value, 10)); }
-  });
+  function removeLegacyMenuButton() {
+    $('.menu .menu__item').filter(function () {
+      return $(this).find('.menu__text').text().trim() === 'AniStar';
+    }).remove();
+  }
+
+  removeLegacyMenuButton();
+  if (Lampa.Listener && Lampa.Listener.follow) {
+    Lampa.Listener.follow('app', function (event) {
+      if (event.type === 'ready') removeLegacyMenuButton();
+    });
+  }
 
   console.log('AniStar online source loaded');
 })();
