@@ -2177,14 +2177,30 @@
 
         function searchOnline(anime) {
             var manifest = onlineModManifest();
+            var movie = onlineMovie(anime);
 
-            if (!manifest) return;
+            if (manifest) {
+                manifest.onContextLauch(movie);
+            } else if (onlineModAvailable()) {
+                Lampa.Activity.push({
+                    url: '',
+                    title: 'Онлайн',
+                    component: 'online_mod',
+                    search: movie.title,
+                    search_one: movie.title,
+                    search_two: movie.original_title,
+                    movie: movie,
+                    page: 1
+                });
+            }
+        }
 
+        function onlineMovie(anime) {
             var english = valueOf(anime.english) || anime.name || '';
             var title = anime.name || english || anime.russian || '';
             var alternatives = [anime.russian, anime.license_name_ru, valueOf(anime.japanese)].concat(anime.synonyms || []);
 
-            manifest.onContextLauch({
+            return {
                 id: tmdbMatch ? (tmdbMatch.themoviedb || tmdbMatch.id) : 0,
                 title: title,
                 name: title,
@@ -2199,7 +2215,7 @@
                     })
                 },
                 shikimori: anime
-            });
+            };
         }
 
         function onlineModManifest() {
@@ -2209,6 +2225,13 @@
 
             if ((hasButton || isOnlineMod) && isOnlineMod && typeof manifest.onContextLauch === 'function') return manifest;
             return null;
+        }
+
+        function onlineModAvailable() {
+            if (onlineModManifest()) return true;
+            if (!window.Lampa || !Lampa.Lang || !Lampa.Lang.translate) return false;
+
+            return Lampa.Lang.translate('online_mod_title') !== 'online_mod_title';
         }
 
         function findTmdbMatch(anime, callback) {
@@ -2256,7 +2279,7 @@
                 onSelect: function selectTorrentSource() { searchTorrents(anime); }
             }];
 
-            if (onlineModManifest()) {
+            if (onlineModAvailable()) {
                 items.push({
                     title: 'Онлайн',
                     onSelect: function selectOnlineSource() { searchOnline(anime); }
