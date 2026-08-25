@@ -2059,6 +2059,159 @@
         };
     }
 
+    function openShikimoriCard(data) {
+        Lampa.Activity.push({
+            url: '',
+            title: titleOf(data),
+            component: 'shikimori_full',
+            id: data.id,
+            card: data
+        });
+    }
+
+    function showShikimoriCardActions(data) {
+        var controller = Lampa.Controller.enabled && Lampa.Controller.enabled();
+        var previous = controller && controller.name ? controller.name : 'content';
+
+        Lampa.Select.show({
+            title: 'Действия',
+            items: [{
+                title: 'Открыть карточку Shikimori',
+                onSelect: function openSelectedShikimoriCard() {
+                    openShikimoriCard(data);
+                }
+            }],
+            onBack: function restoreCardController() {
+                Lampa.Controller.toggle(previous);
+            },
+            onBeforeClose: function restoreCardControllerBeforeClose() {
+                Lampa.Controller.toggle(previous);
+                return true;
+            }
+        });
+    }
+
+    function onShikimoriCardLongPress(data, element) {
+        element.data('shikimori-long-press', Date.now());
+        showShikimoriCardActions(data);
+    }
+
+    function ShikimoriFull(object) {
+        var params = object || {};
+        var html = $('<div class="Shikimori-full"></div>');
+        var scroll = new Lampa.Scroll({ mask: true, over: true, step: 250 });
+        var body = $('<div class="Shikimori-full__body"><div class="Shikimori-loader">Загрузка...</div></div>');
+        var rendered = false;
+
+        scroll.append(body);
+        scroll.minus();
+        scroll.onWheel = function scrollShikimoriFull(step) {
+            if (step > 0) Navigator.move('down');
+            else Navigator.move('up');
+        };
+
+        function valueOf(value) {
+            if (Array.isArray(value)) return value.length ? value[0] : '';
+            return value || '';
+        }
+
+        function joinNames(items) {
+            var result = [];
+
+            for (var i = 0; i < (items || []).length; i++) {
+                var title = items[i] && (items[i].russian || items[i].name);
+                if (title) result.push(title);
+            }
+
+            return result.join(', ');
+        }
+
+        function renderAnime(anime) {
+            var poster = normalizePosterUrl(anime.image && (anime.image.original || anime.image.preview));
+            var original = valueOf(anime.english) || anime.name || '';
+            var dates = anime.aired_on || '';
+            var meta = [kindName(anime.kind), statusName(anime.status)];
+            var genres = joinNames(anime.genres);
+            var studios = joinNames(anime.studios);
+            var description = esc(anime.description || 'Описание отсутствует').replace(/\r?\n/g, '<br>');
+
+            if (anime.released_on && anime.released_on !== anime.aired_on) dates += (dates ? ' — ' : '') + anime.released_on;
+            if (anime.episodes) meta.push(anime.episodes + ' эп.');
+            if (anime.duration) meta.push(anime.duration + ' мин.');
+
+            body.html(
+                '<div class="Shikimori-full__hero">' +
+                    '<div class="Shikimori-full__poster"><img src="' + esc(poster) + '"></div>' +
+                    '<div class="Shikimori-full__info">' +
+                        '<div class="Shikimori-full__label">SHIKIMORI</div>' +
+                        '<div class="Shikimori-full__title">' + esc(anime.russian || anime.name || 'Shikimori') + '</div>' +
+                        (original && original !== anime.russian ? '<div class="Shikimori-full__original">' + esc(original) + '</div>' : '') +
+                        '<div class="Shikimori-full__score">★ ' + esc(anime.score || '—') + '</div>' +
+                        '<div class="Shikimori-full__meta">' + esc(meta.join(' • ')) + '</div>' +
+                        (dates ? '<div class="Shikimori-full__row"><b>Выход:</b> ' + esc(dates) + '</div>' : '') +
+                        (genres ? '<div class="Shikimori-full__row"><b>Жанры:</b> ' + esc(genres) + '</div>' : '') +
+                        (studios ? '<div class="Shikimori-full__row"><b>Студии:</b> ' + esc(studios) + '</div>' : '') +
+                        '<div class="simple-button selector Shikimori-full__back">Назад</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="Shikimori-full__description">' + description + '</div>'
+            );
+
+            body.find('.Shikimori-full__back').on('hover:enter click tap', function closeShikimoriCard() {
+                if (Lampa.Activity && Lampa.Activity.backward) Lampa.Activity.backward();
+            });
+
+            Lampa.Controller.collectionSet(html);
+            Lampa.Controller.collectionFocus(body.find('.selector').first(), html);
+        }
+
+        function loadAnime() {
+            apiGetJson(getShikiHost() + '/api/animes/' + encodeURIComponent(params.id), renderAnime, function showShikimoriCardError() {
+                body.html('<div class="Shikimori-empty">Не удалось загрузить карточку Shikimori</div>');
+            });
+        }
+
+        this.render = function renderShikimoriFull() {
+            if (!rendered) {
+                rendered = true;
+                html.append(scroll.render());
+                loadAnime();
+            }
+
+            return html;
+        };
+
+        this.create = this.render;
+
+        this.start = function startShikimoriFull() {
+            Lampa.Controller.add('content', {
+                toggle: function toggleShikimoriFull() {
+                    Lampa.Controller.collectionSet(html);
+                    Lampa.Controller.collectionFocus(body.find('.selector').first(), html);
+                },
+                left: function moveShikimoriFullLeft() {
+                    if (Navigator.canmove('left')) Navigator.move('left');
+                    else Lampa.Controller.toggle('menu');
+                },
+                right: function moveShikimoriFullRight() { Navigator.move('right'); },
+                up: function moveShikimoriFullUp() { Navigator.move('up'); },
+                down: function moveShikimoriFullDown() { Navigator.move('down'); },
+                back: function closeShikimoriFull() {
+                    if (Lampa.Activity && Lampa.Activity.backward) Lampa.Activity.backward();
+                }
+            });
+
+            Lampa.Controller.toggle('content');
+        };
+
+        this.stop = function stopShikimoriFull() {};
+        this.pause = function pauseShikimoriFull() {};
+        this.destroy = function destroyShikimoriFull() {
+            scroll.destroy();
+            html.remove();
+        };
+    }
+
     /**
      * Компонент каталога: прокручиваемая сетка карточек аниме с шапкой, фильтрами, пагинацией.
      * Регистрируется как Lampa компонент 'shikimori'.
@@ -3062,31 +3215,12 @@
             });
 
             bindPress(render, function () {
+                if (Date.now() - (render.data('shikimori-long-press') || 0) < 600) return;
                 lastCardId = item.id;
                 openAnime(item);
             });
 
-            render.on('hover:long', function () {
-                var controller = Lampa.Controller.enabled && Lampa.Controller.enabled();
-                var previous = controller && controller.name ? controller.name : 'content';
-
-                Lampa.Select.show({
-                    title: 'Действия',
-                    items: [{
-                        title: 'Открыть карточку Shikimori',
-                        onSelect: function () {
-                            notify('Карточка Shikimori пока не реализована');
-                        }
-                    }],
-                    onBack: function () {
-                        Lampa.Controller.toggle(previous);
-                    },
-                    onBeforeClose: function () {
-                        Lampa.Controller.toggle(previous);
-                        return true;
-                    }
-                });
-            });
+            render.on('hover:long', onShikimoriCardLongPress.bind(null, item, render));
 
             body.append(render);
         }
@@ -3599,6 +3733,25 @@
                 '.Shikimori-more{height:2.8em;line-height:2.8em;min-width:8em;text-align:center;margin-top:2em}' +
                 '.shikimori-list-active{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.18);color:#fff}' +
 
+                '.Shikimori-full{height:100%;color:#fff;box-sizing:border-box}' +
+                '.Shikimori-full>.scroll{height:100%;overflow:hidden}' +
+                '.Shikimori-full__body{padding:3.2em 4.5em 5em;max-width:78em;margin:0 auto;box-sizing:border-box}' +
+                '.Shikimori-full__hero{display:flex;align-items:flex-start;gap:3em}' +
+                '.Shikimori-full__poster{width:18em;flex:0 0 18em;border-radius:.7em;overflow:hidden;background:#20232b;box-shadow:0 1.2em 3em rgba(0,0,0,.35)}' +
+                '.Shikimori-full__poster img{display:block;width:100%;height:auto;min-height:26em;object-fit:cover}' +
+                '.Shikimori-full__info{flex:1;min-width:0;padding-top:.4em}' +
+                '.Shikimori-full__label{display:inline-block;color:#ff8795;font-size:.82em;font-weight:800;letter-spacing:.18em;margin-bottom:1em}' +
+                '.Shikimori-full__title{font-size:3em;font-weight:750;line-height:1.05;margin-bottom:.25em}' +
+                '.Shikimori-full__original{font-size:1.25em;color:rgba(255,255,255,.55);margin-bottom:1em}' +
+                '.Shikimori-full__score{display:inline-block;font-size:1.45em;font-weight:700;color:#ffd166;background:rgba(255,209,102,.09);padding:.38em .65em;border-radius:.35em;margin:.2em 0 .8em}' +
+                '.Shikimori-full__meta{font-size:1.1em;color:rgba(255,255,255,.7);margin-bottom:1.3em}' +
+                '.Shikimori-full__row{font-size:1.05em;line-height:1.5;color:rgba(255,255,255,.72);margin:.35em 0}' +
+                '.Shikimori-full__row b{color:#fff;font-weight:600}' +
+                '.Shikimori-full__back{display:inline-block;margin-top:1.8em;padding:.75em 1.5em!important;background:rgba(255,255,255,.1)!important;border-radius:.45em}' +
+                '.Shikimori-full__back.focus{background:#c83a4b!important;color:#fff!important;transform:scale(1.04)}' +
+                '.Shikimori-full__description{font-size:1.13em;line-height:1.65;color:rgba(255,255,255,.78);margin-top:2.5em;padding-top:2em;border-top:1px solid rgba(255,255,255,.1)}' +
+                '@media(max-width:700px){.Shikimori-full__body{padding:2em 1.2em 4em}.Shikimori-full__hero{gap:1.4em}.Shikimori-full__poster{width:10em;flex-basis:10em}.Shikimori-full__poster img{min-height:14em}.Shikimori-full__title{font-size:2em}.Shikimori-full__description{font-size:1em}}' +
+
                 '.shikimori-qr-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center}' +
                 '.shikimori-qr-modal{background:#1b1d24;border-radius:1em;padding:2em 2.5em;max-width:26em;width:90%;text-align:center;color:#fff;display:flex;flex-direction:column;align-items:center;gap:0.8em}' +
                 '.shikimori-qr-title{font-size:1.4em;font-weight:700;color:#e95a68}' +
@@ -3636,6 +3789,7 @@
         addStyles();
 
         Lampa.Component.add('shikimori', Catalog);
+        Lampa.Component.add('shikimori_full', ShikimoriFull);
 
         extendFull();
 
