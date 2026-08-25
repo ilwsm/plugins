@@ -53,7 +53,6 @@
     var posterRequests = {};
     var fullResolveCache = {};
     var fullPollId = null;
-    var pendingOnlineTmdbId = null;
 
     function debug() {
         if (DEBUG && window.console && window.console.log) {
@@ -2177,16 +2176,39 @@
         }
 
         function searchOnline(anime) {
-            findTmdbMatch(anime, function openOnlineThroughTmdb(match) {
-                if (match) {
-                    notify('Открыта карточка с установленными онлайн-источниками');
-                    pendingOnlineTmdbId = String(match.themoviedb || match.id);
-                    openTmdb(match, anime);
-                } else {
-                    notify('TMDB-связь не найдена, открыт общий поиск');
-                    searchCard(anime);
-                }
+            var manifest = onlineModManifest();
+
+            if (!manifest) return;
+
+            var english = valueOf(anime.english) || anime.name || '';
+            var title = anime.name || english || anime.russian || '';
+            var alternatives = [anime.russian, anime.license_name_ru, valueOf(anime.japanese)].concat(anime.synonyms || []);
+
+            manifest.onContextLauch({
+                id: tmdbMatch ? (tmdbMatch.themoviedb || tmdbMatch.id) : 0,
+                title: title,
+                name: title,
+                original_title: english,
+                original_name: english,
+                release_date: anime.aired_on || '',
+                first_air_date: anime.aired_on || '',
+                number_of_seasons: anime.kind === 'tv' ? 1 : 0,
+                alternative_titles: {
+                    results: alternatives.filter(function (alternative) { return !!alternative; }).map(function (alternative) {
+                        return { title: alternative };
+                    })
+                },
+                shikimori: anime
             });
+        }
+
+        function onlineModManifest() {
+            var manifest = window.Lampa && Lampa.Manifest && Lampa.Manifest.plugins;
+            var hasButton = $('.view--online_mod').length > 0;
+            var isOnlineMod = manifest && manifest.component === 'online_mod';
+
+            if ((hasButton || isOnlineMod) && isOnlineMod && typeof manifest.onContextLauch === 'function') return manifest;
+            return null;
         }
 
         function findTmdbMatch(anime, callback) {
@@ -2229,13 +2251,19 @@
         }
 
         function showWatchSources(anime) {
-            showFullActionMenu('Источники', [{
+            var items = [{
                 title: 'Торренты',
                 onSelect: function selectTorrentSource() { searchTorrents(anime); }
-            }, {
-                title: 'Онлайн',
-                onSelect: function selectOnlineSource() { searchOnline(anime); }
-            }]);
+            }];
+
+            if (onlineModManifest()) {
+                items.push({
+                    title: 'Онлайн',
+                    onSelect: function selectOnlineSource() { searchOnline(anime); }
+                });
+            }
+
+            showFullActionMenu('Источники', items);
         }
 
         function showMoreActions(anime) {
@@ -3676,18 +3704,6 @@
 
         Lampa.Listener.follow('full', function (event) {
             fullResolveCache = {};
-
-            if (pendingOnlineTmdbId && event && event.type === 'complite') {
-                var movie = event.data && event.data.movie;
-
-                if (movie && String(movie.id) === pendingOnlineTmdbId) {
-                    pendingOnlineTmdbId = null;
-                    setTimeout(function openFullWatchSources() {
-                        var play = event.body && event.body.find('.button--play');
-                        if (play && play.length) play.trigger('hover:enter');
-                    }, 150);
-                }
-            }
 
             if (fullPollId) { clearInterval(fullPollId); fullPollId = null; }
 
