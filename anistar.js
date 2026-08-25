@@ -12,7 +12,6 @@
     'https://api.codetabs.com/v1/proxy?quest='
   ];
 
-  // ─── Settings helpers ──────────────────────────────────────────────
   function getSetting(key, def) {
     try { return Lampa.Storage.get('anistar_' + key, def); }
     catch (e) { return def; }
@@ -21,7 +20,6 @@
     try { Lampa.Storage.set('anistar_' + key, val); } catch (e) {}
   }
 
-  // ─── Utilities ─────────────────────────────────────────────────────
   function decode1251(buffer) {
     try {
       var decoder = new TextDecoder('windows-1251');
@@ -62,7 +60,6 @@
     keys.forEach(function (k) { localStorage.removeItem(k); });
   }
 
-  // ─── Regex-based HTML helpers ──────────────────────────────────────
   function regexAttr(html, tag, attr) {
     var re = new RegExp('<' + tag + '[^>]*\\s' + attr + '=["\\\']([^"\\\']*)["\\\']', 'i');
     var m = html.match(re);
@@ -107,7 +104,6 @@
     return html.substring(i, j);
   }
 
-  // ─── HTTP fetch wrapper (uses Lampa.Reguest with proxy) ────────────
   function httpGet(url, callback, asArrayBuffer) {
     var req = new Lampa.Reguest();
     var opts = asArrayBuffer ? { type: 'arraybuffer' } : {};
@@ -119,7 +115,6 @@
         callback(typeof data === 'string' ? data : '');
       }
     }, function (err) {
-      // Try next proxy
       var idx = getSetting('proxy', 0);
       var nextIdx = (idx + 1) % PROXY_LIST.length;
       setSetting('proxy', nextIdx);
@@ -147,17 +142,14 @@
     });
   }
 
-  // ─── Parse catalog items from HTML ─────────────────────────────────
   function parseCatalogItems(html) {
     var items = [];
     var blocks = html.match(/<div[^>]*class="news"[^>]*itemscope[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<\/div>/gi) || [];
 
-    // Fallback: try simpler .news blocks
     if (blocks.length === 0) {
       blocks = html.match(/<div[^>]*class="news"[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi) || [];
     }
     if (blocks.length === 0) {
-      // Even broader: grab everything between successive news divs
       var parts = html.split(/<div[^>]*class="news"/i);
       for (var i = 1; i < parts.length; i++) {
         var chunk = '<div class="news"' + parts[i];
@@ -174,7 +166,6 @@
     blocks.forEach(function (block) {
       var item = {};
 
-      // URL + title
       var titleLink = block.match(/<div class="title_left">\s*<a[^>]*href=["\']([^"\']+)["\'][^>]*>([^<]+)<\/a>/i);
       if (!titleLink) {
         titleLink = block.match(/<a[^>]*href=["\']([^"\']*\.html)["\'][^>]*>([^<]+)<\/a>/i);
@@ -185,7 +176,6 @@
         item.id = extractIdFromUrl(item.url);
       }
 
-      // Poster
       var img = block.match(/<img[^>]*itemprop=["\']image["\'][^>]*src=["\']([^"\']+)["\']/i);
       if (!img) img = block.match(/<img[^>]*class=["\']main-img["\'][^>]*src=["\']([^"\']+)["\']/i);
       if (!img) img = block.match(/<img[^>]*src=["\']([^"\']*uploads[^"\']*)["\']/i);
@@ -194,31 +184,25 @@
         if (item.poster.indexOf('http') !== 0) item.poster = BASE + item.poster;
       }
 
-      // Rating
       var rating = block.match(/itemprop=["\']ratingValue["\'][^>]*>(\d+)/i);
       if (rating) item.rating = rating[1];
 
-      // Year
       var year = block.match(/Год выхода[\s\S]*?<a[^>]*>(\d{4})<\/a>/i);
       if (!year) year = block.match(/year\/(\d{4})/i);
       if (year) item.year = year[1];
 
-      // Type
       var type = block.match(/Тип[\s\S]*?<a[^>]*>([^<]+)<\/a>/i);
       if (type) item.type = stripTags(type[1]);
 
-      // Genres
       var genres = block.match(/Жанр[\s\S]*?<\/b>\s*([\s\S]*?)<\/li>/i);
       if (genres) {
         var gLinks = genres[1].match(/<a[^>]*>([^<]+)<\/a>/gi) || [];
         item.genres = gLinks.map(function (g) { return stripTags(g); });
       }
 
-      // Episodes
       var eps = block.match(/Серий[\s\S]*?<\/b>\s*([\s\S]*?)<\/li>/i);
       if (eps) item.episodes = stripTags(eps[1]);
 
-      // Description
       var desc = block.match(/<div class="descripts">([\s\S]*?)(?:<p class="reason"|<\/div>)/i);
       if (desc) item.description = stripTags(desc[1]);
 
@@ -228,7 +212,6 @@
     return items;
   }
 
-  // ─── Parse pagination ──────────────────────────────────────────────
   function parsePagination(html) {
     var pages = html.match(/<div class="pages">([\s\S]*?)<\/div>/i);
     if (!pages) return { current: 1, total: 1 };
@@ -250,16 +233,13 @@
     };
   }
 
-  // ─── Parse detail page ─────────────────────────────────────────────
   function parseDetail(html) {
     var detail = {};
 
-    // Title
     var t = html.match(/<h1[^>]*itemprop=["\']name["\'][^>]*>([^<]+)<\/h1>/i);
     if (!t) t = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
     if (t) detail.title = stripTags(t[1]);
 
-    // Poster
     var img = html.match(/<img[^>]*itemprop=["\']image["\'][^>]*src=["\']([^"\']+)["\']/i);
     if (!img) img = html.match(/<div class="fimg"[^>]*>\s*<img[^>]*src=["\']([^"\']+)["\']/i);
     if (img) {
@@ -267,16 +247,13 @@
       if (detail.poster.indexOf('http') !== 0) detail.poster = BASE + detail.poster;
     }
 
-    // Rating
     var rating = html.match(/itemprop=["\']ratingValue["\'][^>]*>(\d+)/i);
     if (rating) detail.rating = rating[1];
 
-    // Description
     var desc = html.match(/<div class="ftext"[^>]*>([\s\S]*?)<\/div>/i);
     if (!desc) desc = html.match(/<div class="full-text"[^>]*>([\s\S]*?)<\/div>/i);
     if (desc) detail.description = stripTags(desc[1]);
 
-    // Metadata from fmeta or similar
     var meta = html.match(/<ul class="fmeta"[^>]*>([\s\S]*?)<\/ul>/i);
     if (!meta) meta = html.match(/<div class="fmeta"[^>]*>([\s\S]*?)<\/div>/i);
     if (meta) {
@@ -297,7 +274,6 @@
       if (typ) detail.type = stripTags(typ[1]);
     }
 
-    // Player iframe
     var iframe = html.match(/<iframe[^>]*src=["\']([^"\']*)["\'][^>]*>/i);
     if (iframe) {
       var src = iframe[1];
@@ -310,7 +286,6 @@
       if (hashMatch) detail.playerHash = hashMatch[1];
     }
 
-    // Alternative: extract player src from script
     if (!detail.playerUrl) {
       var scriptSrc = html.match(/(?:playerUrl|player_url|iframe_src)\s*=\s*["\']([^"\']+)["\']/i);
       if (scriptSrc) {
@@ -320,7 +295,6 @@
       }
     }
 
-    // Another pattern: /test/player2/...
     if (!detail.playerUrl) {
       var p2 = html.match(/\/test\/player2\/[^\s"'\)]+/i);
       if (p2) {
@@ -334,7 +308,6 @@
       }
     }
 
-    // Episodes list from the page itself (if no player iframe found, look for episode links)
     detail.episodesList = [];
     var epBlocks = html.match(/<div class="[^"]*episode[^"]*"[^>]*>([\s\S]*?)<\/div>/gi) || [];
     epBlocks.forEach(function (eb, idx) {
@@ -345,9 +318,7 @@
     return detail;
   }
 
-  // ─── Parse player playlist ─────────────────────────────────────────
   function parsePlayerPlaylist(html) {
-    // Look for var playlst = [...];
     var plMatch = html.match(/var\s+playlst\s*=\s*(\[[\s\S]*?\]);/i);
     if (!plMatch) plMatch = html.match(/playlst\s*=\s*(\[[\s\S]*?\]);/i);
     if (!plMatch) return [];
@@ -357,18 +328,15 @@
         .replace(/,\s*\]/g, ']')
         .replace(/,\s*\}/g, '}');
 
-      // Sanitize: remove potential trailing commas
       var playlist = JSON.parse(cleaned);
       return playlist;
     } catch (e) {
-      // Try manual parsing as fallback
       return parsePlayerPlaylistManual(plMatch[1]);
     }
   }
 
   function parsePlayerPlaylistManual(raw) {
     var items = [];
-    // Split by { ... }
     var blocks = raw.match(/\{[\s\S]*?\}/g) || [];
     blocks.forEach(function (block) {
       var item = {};
@@ -378,7 +346,6 @@
       var hls = block.match(/hls\s*:\s*["']([^"']*)["']/i);
       if (hls) item.hls = hls[1];
 
-      // MP4 files
       item.files_mp4 = [];
       var fileMatches = block.match(/\{\s*file\s*:\s*["']([^"']*)["']\s*,\s*label\s*:\s*["']([^"']*)["']\s*\}/gi) || [];
       fileMatches.forEach(function (fm) {
@@ -392,12 +359,11 @@
     return items;
   }
 
-  // ─── API ───────────────────────────────────────────────────────────
   var Api = {
     catalog: function (page, callback) {
       var url = page > 1 ? BASE + '/page/' + page + '/' : BASE + '/';
       var cacheKey = 'catalog_' + page;
-      var cached = cacheGet(cacheKey, 30 * 60 * 1000); // 30 min
+      var cached = cacheGet(cacheKey, 30 * 60 * 1000);
       if (cached) return callback(cached);
 
       httpGet(url, function (html) {
@@ -455,7 +421,7 @@
 
     detail: function (url, callback) {
       var cacheKey = 'detail_' + url;
-      var cached = cacheGet(cacheKey, 60 * 60 * 1000); // 1 hour
+      var cached = cacheGet(cacheKey, 60 * 60 * 1000);
       if (cached) return callback(cached);
 
       httpGet(url, function (html) {
@@ -473,14 +439,12 @@
     player: function (playerUrl, callback) {
       if (!playerUrl) return callback([]);
 
-      // Try fetching through proxy first
       httpGet(playerUrl, function (html) {
         if (html) {
           var playlist = parsePlayerPlaylist(html);
           if (playlist.length > 0) return callback(playlist);
         }
 
-        // Try arraybuffer approach (windows-1251)
         httpGet(playerUrl, function (html2) {
           var playlist2 = parsePlayerPlaylist(html2);
           callback(playlist2);
@@ -489,7 +453,6 @@
     }
   };
 
-  // ─── Card template ─────────────────────────────────────────────────
   Lampa.Template.add('anistar_card', '<div class="card card--wide card--tag">' +
     '<div class="card__img"><img /></div>' +
     '<div class="card__body">' +
@@ -528,7 +491,6 @@
     return card;
   }
 
-  // ─── Catalog component ─────────────────────────────────────────────
   Lampa.Component.add('anistar', {
     type: 'list',
 
@@ -568,7 +530,6 @@
 
         container.appendChild(list);
 
-        // Pagination
         if (data.pagination && data.pagination.total > 1) {
           var pag = document.createElement('div');
           pag.className = 'anistar-pagination';
@@ -609,7 +570,6 @@
     }
   });
 
-  // ─── Category-specific components ──────────────────────────────────
   ['anime', 'cartoons', 'manga', 'dorams'].forEach(function (cat) {
     var titles = {
       anime: 'AniStar - Аниме',
@@ -683,7 +643,6 @@
     });
   });
 
-  // ─── Detail component ──────────────────────────────────────────────
   Lampa.Component.add('anistar_detail', {
     type: 'page',
 
@@ -699,7 +658,6 @@
         if (!detail) return;
         container.innerHTML = '';
 
-        // Poster + info
         var hero = document.createElement('div');
         hero.style.cssText = 'display:flex;gap:20px;padding:20px;flex-wrap:wrap;';
         hero.innerHTML =
@@ -719,7 +677,6 @@
           '</div>';
         container.appendChild(hero);
 
-        // Play button
         if (detail.playerUrl) {
           var playBtn = document.createElement('div');
           playBtn.className = 'simple-button';
@@ -731,7 +688,6 @@
           container.appendChild(playBtn);
         }
 
-        // Episode list (if we have episodes from playlist)
         var epList = document.createElement('div');
         epList.className = 'anistar-episodes';
         epList.style.cssText = 'padding:10px 20px;';
@@ -756,7 +712,6 @@
 
         container.appendChild(epList);
 
-        // Back button
         var backBtn = document.createElement('div');
         backBtn.className = 'simple-button';
         backBtn.textContent = '← Назад';
@@ -778,7 +733,6 @@
           }
 
           var episodes = playlist.map(function (ep, idx) {
-            // Prefer MP4 over HLS
             var url = '';
             var quality = {};
             var defaultQuality = getSetting('quality', '720');
@@ -806,7 +760,6 @@
             return;
           }
 
-          // Play first episode
           var first = episodes[0];
           Lampa.Player.play({
             title: first.title,
@@ -814,7 +767,6 @@
             subtitles: []
           });
 
-          // Set playlist
           Lampa.Player.playlist(episodes.map(function (ep) {
             return {
               title: ep.title,
@@ -840,7 +792,6 @@
     }
   });
 
-  // ─── Search component ──────────────────────────────────────────────
   Lampa.Component.add('anistar_search', {
     type: 'list',
 
@@ -887,78 +838,104 @@
     }
   });
 
-  // ─── Settings ──────────────────────────────────────────────────────
-  Lampa.Settings.add({
+  // Lampa.Settings has no .add() method (real API: listener/init/render/update/create/main).
+  // Use SettingsApi, same pattern as the other working plugins.
+  Lampa.SettingsApi.addComponent({
     component: 'anistar',
     name: 'AniStar',
-    items: [
-      {
-        name: 'Качество по умолчанию',
-        description: 'Какое качество MP4 использовать по умолчанию',
-        type: 'select',
-        values: {
-          '720': '720p',
-          '360': '360p'
-        },
-        default: '720',
-        onChange: function (val) {
-          setSetting('quality', val);
-        }
-      },
-      {
-        name: 'Прокси-сервер',
-        description: 'Прокси для обхода CORS (если не работает, попробуйте другой)',
-        type: 'select',
-        values: {
-          '0': 'allorigins.win',
-          '1': 'corsproxy.io',
-          '2': 'codetabs.com'
-        },
-        default: '0',
-        onChange: function (val) {
-          setSetting('proxy', parseInt(val));
-        }
-      },
-      {
-        name: 'Очистить кеш',
-        description: 'Очистить кached данные AniStar',
-        type: 'button',
-        onChange: function () {
-          clearCache();
-          Lampa.Noty.show('Кеш AniStar очищен');
-        }
-      }
-    ]
+    icon: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/></svg>'
   });
 
-  // ─── Plugin registration ───────────────────────────────────────────
-  Lampa.Manifest.plugins = Lampa.Manifest.plugins || {};
-  Lampa.Manifest.plugins.push({
-    name: 'AniStar',
+  Lampa.SettingsApi.addParam({
+    component: 'anistar',
+    param: {
+      name: 'anistar_quality',
+      type: 'select',
+      values: { '720': '720p', '360': '360p' },
+      default: '720'
+    },
+    field: {
+      name: 'Качество по умолчанию',
+      description: 'Какое качество MP4 использовать по умолчанию'
+    },
+    onChange: function (value) {
+      setSetting('quality', value);
+    }
+  });
+
+  Lampa.SettingsApi.addParam({
+    component: 'anistar',
+    param: {
+      name: 'anistar_proxy',
+      type: 'select',
+      values: { '0': 'allorigins.win', '1': 'corsproxy.io', '2': 'codetabs.com' },
+      default: '0'
+    },
+    field: {
+      name: 'Прокси-сервер',
+      description: 'Прокси для обхода CORS (если не работает, попробуйте другой)'
+    },
+    onChange: function (value) {
+      setSetting('proxy', parseInt(value));
+    }
+  });
+
+  Lampa.SettingsApi.addParam({
+    component: 'anistar',
+    param: {
+      name: 'anistar_clear_cache',
+      type: 'trigger',
+      default: ''
+    },
+    field: {
+      name: 'Очистить кеш',
+      description: 'Очистить кешированные данные AniStar'
+    },
+    onChange: function () {
+      clearCache();
+      Lampa.Noty.show('Кеш AniStar очищен');
+    }
+  });
+
+  // Manifest.plugins is a getter/setter registry for the "installed plugins"
+  // info screen only — it does NOT create a menu entry. Assigning a single
+  // object with a `type` field is the correct usage (see IPTV/Collections
+  // plugins bundled with Lampa itself).
+  Lampa.Manifest.plugins = {
+    type: 'video',
     version: '1.0.0',
+    name: 'AniStar',
     description: 'Плагин для просмотра аниме с anistar.org',
     component: 'anistar'
-  });
+  };
 
-  // ─── Menu integration ──────────────────────────────────────────────
-  function addMenuItem(title, component) {
-    Lampa.Manifest.plugins.push({
-      name: title,
-      component: component
+  // The actual menu entry: build the <li> and append it to the sidebar,
+  // same approach as Lampa's own bundled plugins.
+  function addMenuButton() {
+    var button = $(
+      '<li class="menu__item selector">' +
+      '<div class="menu__ico"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/></svg></div>' +
+      '<div class="menu__text">AniStar</div>' +
+      '</li>'
+    );
+
+    button.on('hover:enter', function () {
+      Lampa.Activity.push({
+        url: '',
+        title: 'AniStar',
+        component: 'anistar',
+        page: 1
+      });
     });
+
+    $('.menu .menu__list').eq(0).append(button);
   }
 
-  addMenuItem('AniStar - Каталог', 'anistar');
-  addMenuItem('AniStar - Аниме', 'anistar_anime');
-  addMenuItem('AniStar - Мультфильмы', 'anistar_cartoons');
-  addMenuItem('AniStar - Манга', 'anistar_manga');
-  addMenuItem('AniStar - Дорамы', 'anistar_dorams');
-
-  // ─── Search integration ────────────────────────────────────────────
-  if (Lampa.Search) {
-    var origSearch = Lampa.Search;
-    // Hook into search to include AniStar results
-    Lampa.Search = origSearch;
+  if (window.appready) addMenuButton();
+  else {
+    Lampa.Listener.follow('app', function (e) {
+      if (e.type == 'ready') addMenuButton();
+    });
   }
 
   console.log('AniStar plugin loaded');
