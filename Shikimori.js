@@ -53,6 +53,7 @@
     var posterRequests = {};
     var fullResolveCache = {};
     var fullPollId = null;
+    var pendingOnlineTmdbId = null;
 
     function debug() {
         if (DEBUG && window.console && window.console.log) {
@@ -1266,16 +1267,9 @@
     function openLampaSearch(shiki) {
         notify('Shikimori: надёжное соответствие в TMDB не найдено, открыт ручной поиск');
 
-        var query = titleOf(shiki);
+        var query = shiki.name || titleOf(shiki);
 
-        if (window.Lampa && Lampa.Activity) {
-            Lampa.Activity.push({
-                url: '',
-                title: 'Поиск: ' + query,
-                component: 'search',
-                query: query
-            });
-        }
+        if (window.Lampa && Lampa.Search && Lampa.Search.open) Lampa.Search.open({ input: query });
     }
 
     /**
@@ -2148,13 +2142,11 @@
         function searchCard(anime) {
             var query = anime.name || valueOf(anime.english) || anime.russian;
 
-            Lampa.Activity.push({
-                url: '',
-                title: 'Поиск: ' + query,
-                component: 'search',
-                query: query,
-                search: query
-            });
+            if (window.Lampa && Lampa.Search && Lampa.Search.open) {
+                Lampa.Search.open({ input: query });
+            } else {
+                notify('Поиск Лампы недоступен');
+            }
         }
 
         function searchTorrents(anime) {
@@ -2185,8 +2177,38 @@
         }
 
         function searchOnline(anime) {
-            notify('Выберите доступный онлайн-источник в результатах поиска');
-            searchCard(anime);
+            findTmdbMatch(anime, function openOnlineThroughTmdb(match) {
+                if (match) {
+                    notify('Открыта карточка с установленными онлайн-источниками');
+                    pendingOnlineTmdbId = String(match.themoviedb || match.id);
+                    openTmdb(match, anime);
+                } else {
+                    notify('TMDB-связь не найдена, открыт общий поиск');
+                    searchCard(anime);
+                }
+            });
+        }
+
+        function findTmdbMatch(anime, callback) {
+            if (tmdbMatch) {
+                callback(tmdbMatch);
+                return;
+            }
+
+            apiGetJson(armLookupUrl(anime.myanimelist_id || anime.id), function verifyFullTmdbMatch(answer) {
+                if (!answer || !answer.themoviedb) {
+                    callback(null);
+                    return;
+                }
+
+                var expectedType = anime.kind === 'movie' ? 'movie' : 'tv';
+                verifyTmdbResult(answer.themoviedb, expectedType, getAnimeYear(anime), anime, function saveFullTmdbMatch(ok) {
+                    if (ok) tmdbMatch = answer;
+                    callback(ok ? answer : null);
+                });
+            }, function failFullTmdbMatch() {
+                callback(null);
+            });
         }
 
         function showFullActionMenu(title, items) {
@@ -2240,15 +2262,7 @@
                 showMoreActions(anime);
             });
 
-            apiGetJson(armLookupUrl(anime.myanimelist_id || anime.id), function showTmdbButton(answer) {
-                if (!answer || !answer.themoviedb) return;
-
-                var expectedType = anime.kind === 'movie' ? 'movie' : 'tv';
-                verifyTmdbResult(answer.themoviedb, expectedType, getAnimeYear(anime), anime, function bindTmdbButton(ok) {
-                    if (!ok) return;
-                    tmdbMatch = answer;
-                });
-            }, function ignoreMissingTmdbLink() {});
+            findTmdbMatch(anime, function cacheFullTmdbMatch() {});
         }
 
         function renderAnime(anime) {
@@ -2276,12 +2290,14 @@
                         (dates ? '<div class="Shikimori-full__row"><b>Выход:</b> ' + esc(dates) + '</div>' : '') +
                         (genres ? '<div class="Shikimori-full__row"><b>Жанры:</b> ' + esc(genres) + '</div>' : '') +
                         (studios ? '<div class="Shikimori-full__row"><b>Студии:</b> ' + esc(studios) + '</div>' : '') +
-                        '<div class="Shikimori-full__buttons">' +
-                            '<div class="full-start__button simple-button selector Shikimori-full__watch">' +
-                                '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"></path></svg>' +
+                        '<div class="full-start-new__buttons Shikimori-full__buttons">' +
+                            '<div class="full-start__button selector button--play Shikimori-full__watch">' +
+                                '<svg><use xlink:href="#sprite-play"></use></svg>' +
                                 '<span>Смотреть</span>' +
                             '</div>' +
-                            '<div class="full-start__button simple-button selector Shikimori-full__more" aria-label="Ещё">•••</div>' +
+                            '<div class="full-start__button selector button--options Shikimori-full__more" aria-label="Ещё">' +
+                                '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" fill="currentColor"></circle><circle cx="12" cy="12" r="2" fill="currentColor"></circle><circle cx="19" cy="12" r="2" fill="currentColor"></circle></svg>' +
+                            '</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
@@ -3661,6 +3677,18 @@
         Lampa.Listener.follow('full', function (event) {
             fullResolveCache = {};
 
+            if (pendingOnlineTmdbId && event && event.type === 'complite') {
+                var movie = event.data && event.data.movie;
+
+                if (movie && String(movie.id) === pendingOnlineTmdbId) {
+                    pendingOnlineTmdbId = null;
+                    setTimeout(function openFullWatchSources() {
+                        var play = event.body && event.body.find('.button--play');
+                        if (play && play.length) play.trigger('hover:enter');
+                    }, 150);
+                }
+            }
+
             if (fullPollId) { clearInterval(fullPollId); fullPollId = null; }
 
             var activity = event && event.object && event.object.activity ? event.object.activity : getActiveActivity();
@@ -3876,13 +3904,7 @@
                 '.Shikimori-full__meta{font-size:1.1em;color:rgba(255,255,255,.7);margin-bottom:1.3em}' +
                 '.Shikimori-full__row{font-size:1.05em;line-height:1.5;color:rgba(255,255,255,.72);margin:.35em 0}' +
                 '.Shikimori-full__row b{color:#fff;font-weight:600}' +
-                '.Shikimori-full__buttons{display:flex;flex-wrap:wrap;gap:.65em;margin-top:1.8em}' +
-                '.Shikimori-full__buttons .simple-button{display:inline-flex;align-items:center;justify-content:center;gap:.5em;padding:.75em 1.2em!important;background:rgba(255,255,255,.1)!important;border-radius:.45em;margin:0!important}' +
-                '.Shikimori-full__buttons .simple-button.focus{background:#c83a4b!important;color:#fff!important;transform:scale(1.04)}' +
-                '.Shikimori-full__watch svg{width:1.35em;height:1.35em;transition:transform .2s ease}' +
-                '.Shikimori-full__watch.focus svg{animation:shikimori-play-pulse .85s ease-in-out infinite alternate}' +
-                '.Shikimori-full__more{font-size:1.25em;letter-spacing:.08em;min-width:3.2em}' +
-                '@keyframes shikimori-play-pulse{from{transform:scale(1)}to{transform:scale(1.28)}}' +
+                '.Shikimori-full__buttons{margin-top:1.8em}' +
                 '.Shikimori-full__description{font-size:1.13em;line-height:1.65;color:rgba(255,255,255,.78);margin-top:2.5em;padding-top:2em;border-top:1px solid rgba(255,255,255,.1)}' +
                 '.Shikimori-full__description p,.Shikimori-full__description div{margin:0 0 1em}.Shikimori-full__description ul,.Shikimori-full__description ol{padding-left:1.6em}' +
                 '@media(max-width:700px){.Shikimori-full__body{padding:2em 1.2em 4em}.Shikimori-full__hero{gap:1.4em}.Shikimori-full__poster{width:10em;flex-basis:10em}.Shikimori-full__poster img{min-height:14em}.Shikimori-full__title{font-size:2em}.Shikimori-full__description{font-size:1em}}' +
