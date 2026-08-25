@@ -3066,6 +3066,28 @@
                 openAnime(item);
             });
 
+            render.on('hover:long', function () {
+                var controller = Lampa.Controller.enabled && Lampa.Controller.enabled();
+                var previous = controller && controller.name ? controller.name : 'content';
+
+                Lampa.Select.show({
+                    title: 'Действия',
+                    items: [{
+                        title: 'Открыть карточку Shikimori',
+                        onSelect: function () {
+                            notify('Карточка Shikimori пока не реализована');
+                        }
+                    }],
+                    onBack: function () {
+                        Lampa.Controller.toggle(previous);
+                    },
+                    onBeforeClose: function () {
+                        Lampa.Controller.toggle(previous);
+                        return true;
+                    }
+                });
+            });
+
             body.append(render);
         }
 
