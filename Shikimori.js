@@ -2176,12 +2176,9 @@
         }
 
         function searchOnline(anime) {
-            var manifest = onlineModManifest();
             var movie = onlineMovie(anime);
 
-            if (manifest) {
-                manifest.onContextLauch(movie);
-            } else if (onlineModAvailable()) {
+            if (onlineModAvailable()) {
                 Lampa.Activity.push({
                     url: '',
                     title: 'Онлайн',
@@ -2218,18 +2215,8 @@
             };
         }
 
-        function onlineModManifest() {
-            var manifest = window.Lampa && Lampa.Manifest && Lampa.Manifest.plugins;
-            var hasButton = $('.view--online_mod').length > 0;
-            var isOnlineMod = manifest && manifest.component === 'online_mod';
-
-            if ((hasButton || isOnlineMod) && isOnlineMod && typeof manifest.onContextLauch === 'function') return manifest;
-            return null;
-        }
-
         function onlineModAvailable() {
-            if (onlineModManifest()) return true;
-            if (!window.Lampa || !Lampa.Lang || !Lampa.Lang.translate) return false;
+            if (!window.Lampa || !Lampa.Lang || typeof Lampa.Lang.translate !== 'function') return false;
 
             return Lampa.Lang.translate('online_mod_title') !== 'online_mod_title';
         }
