@@ -2106,8 +2106,7 @@
         scroll.append(body);
         scroll.minus();
         scroll.onWheel = function scrollShikimoriFull(step) {
-            if (step > 0) Navigator.move('down');
-            else Navigator.move('up');
+            scroll.wheel(step > 0 ? 250 : -250);
         };
 
         function valueOf(value) {
@@ -2126,6 +2125,25 @@
             return result.join(', ');
         }
 
+        function descriptionHtml(anime) {
+            if (!anime.description_html) {
+                return esc(anime.description || 'Описание отсутствует').replace(/\r?\n/g, '<br>');
+            }
+
+            var container = $('<div></div>').html(anime.description_html);
+            container.find('script,style,iframe,object,embed').remove();
+            container.find('*').each(function cleanDescriptionElement() {
+                var element = $(this);
+                var tag = String(this.tagName || '').toLowerCase();
+                var allowed = /^(div|p|br|b|strong|i|em|ul|ol|li)$/.test(tag);
+
+                if (allowed) element.removeAttr('class style id title href data-tooltip_url data-attrs');
+                else element.replaceWith(element.contents());
+            });
+
+            return container.html();
+        }
+
         function renderAnime(anime) {
             var poster = normalizePosterUrl(anime.image && (anime.image.original || anime.image.preview));
             var original = valueOf(anime.english) || anime.name || '';
@@ -2133,7 +2151,7 @@
             var meta = [kindName(anime.kind), statusName(anime.status)];
             var genres = joinNames(anime.genres);
             var studios = joinNames(anime.studios);
-            var description = esc(anime.description || 'Описание отсутствует').replace(/\r?\n/g, '<br>');
+            var description = descriptionHtml(anime);
 
             if (anime.released_on && anime.released_on !== anime.aired_on) dates += (dates ? ' — ' : '') + anime.released_on;
             if (anime.episodes) meta.push(anime.episodes + ' эп.');
@@ -2194,8 +2212,8 @@
                     else Lampa.Controller.toggle('menu');
                 },
                 right: function moveShikimoriFullRight() { Navigator.move('right'); },
-                up: function moveShikimoriFullUp() { Navigator.move('up'); },
-                down: function moveShikimoriFullDown() { Navigator.move('down'); },
+                up: function moveShikimoriFullUp() { scroll.wheel(-250); },
+                down: function moveShikimoriFullDown() { scroll.wheel(250); },
                 back: function closeShikimoriFull() {
                     if (Lampa.Activity && Lampa.Activity.backward) Lampa.Activity.backward();
                 }
@@ -3750,6 +3768,7 @@
                 '.Shikimori-full__back{display:inline-block;margin-top:1.8em;padding:.75em 1.5em!important;background:rgba(255,255,255,.1)!important;border-radius:.45em}' +
                 '.Shikimori-full__back.focus{background:#c83a4b!important;color:#fff!important;transform:scale(1.04)}' +
                 '.Shikimori-full__description{font-size:1.13em;line-height:1.65;color:rgba(255,255,255,.78);margin-top:2.5em;padding-top:2em;border-top:1px solid rgba(255,255,255,.1)}' +
+                '.Shikimori-full__description p,.Shikimori-full__description div{margin:0 0 1em}.Shikimori-full__description ul,.Shikimori-full__description ol{padding-left:1.6em}' +
                 '@media(max-width:700px){.Shikimori-full__body{padding:2em 1.2em 4em}.Shikimori-full__hero{gap:1.4em}.Shikimori-full__poster{width:10em;flex-basis:10em}.Shikimori-full__poster img{min-height:14em}.Shikimori-full__title{font-size:2em}.Shikimori-full__description{font-size:1em}}' +
 
                 '.shikimori-qr-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center}' +
