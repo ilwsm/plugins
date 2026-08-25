@@ -2216,9 +2216,12 @@
         }
 
         function onlineModAvailable() {
-            if (!window.Lampa || !Lampa.Lang || typeof Lampa.Lang.translate !== 'function') return false;
-
-            return Lampa.Lang.translate('online_mod_title') !== 'online_mod_title';
+            return !!(
+                window.Lampa &&
+                Lampa.Component &&
+                typeof Lampa.Component.get === 'function' &&
+                Lampa.Component.get('online_mod')
+            );
         }
 
         function findTmdbMatch(anime, callback) {
