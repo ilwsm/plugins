@@ -2144,6 +2144,81 @@
             return container.html();
         }
 
+        function searchCard(anime) {
+            var query = anime.russian || valueOf(anime.english) || anime.name;
+
+            Lampa.Activity.push({
+                url: '',
+                title: 'Поиск: ' + query,
+                component: 'search',
+                query: query,
+                search: query
+            });
+        }
+
+        function searchTorrents(anime) {
+            var title = anime.russian || anime.name || '';
+            var original = valueOf(anime.english) || anime.name || '';
+            var year = anime.aired_on ? String(anime.aired_on).substring(0, 4) : '';
+            var movie = {
+                id: anime.id,
+                title: title,
+                original_title: original,
+                name: title,
+                original_name: original,
+                release_date: anime.aired_on || '',
+                first_air_date: anime.aired_on || '',
+                shikimori: anime
+            };
+
+            Lampa.Activity.push({
+                url: '',
+                title: 'Торренты',
+                component: 'torrents',
+                search: original + (year ? ' ' + year : ''),
+                search_one: title,
+                search_two: original,
+                movie: movie,
+                page: 1
+            });
+        }
+
+        function searchOnline(anime) {
+            var query = anime.russian || valueOf(anime.english) || anime.name;
+
+            notify('Выберите доступный онлайн-источник в результатах поиска');
+            searchCard(anime);
+        }
+
+        function bindFullButtons(anime) {
+            body.find('.Shikimori-full__search').on('hover:enter click tap', function openLampaSearchFromShikimori() {
+                searchCard(anime);
+            });
+            body.find('.Shikimori-full__torrent').on('hover:enter click tap', function openTorrentSearchFromShikimori() {
+                searchTorrents(anime);
+            });
+            body.find('.Shikimori-full__online').on('hover:enter click tap', function openOnlineSearchFromShikimori() {
+                searchOnline(anime);
+            });
+            body.find('.Shikimori-full__back').on('hover:enter click tap', function closeShikimoriCard() {
+                if (Lampa.Activity && Lampa.Activity.backward) Lampa.Activity.backward();
+            });
+
+            apiGetJson(armLookupUrl(anime.myanimelist_id || anime.id), function showTmdbButton(answer) {
+                if (!answer || !answer.themoviedb) return;
+
+                var expectedType = anime.kind === 'movie' ? 'movie' : 'tv';
+                verifyTmdbResult(answer.themoviedb, expectedType, getAnimeYear(anime), anime, function bindTmdbButton(ok) {
+                    if (!ok) return;
+
+                    body.find('.Shikimori-full__tmdb').removeClass('hide').on('hover:enter click tap', function openTmdbFromShikimori() {
+                        openTmdb(answer, anime);
+                    });
+                    Lampa.Controller.collectionSet(html);
+                });
+            }, function ignoreMissingTmdbLink() {});
+        }
+
         function renderAnime(anime) {
             var poster = normalizePosterUrl(anime.image && (anime.image.original || anime.image.preview));
             var original = valueOf(anime.english) || anime.name || '';
@@ -2169,15 +2244,19 @@
                         (dates ? '<div class="Shikimori-full__row"><b>Выход:</b> ' + esc(dates) + '</div>' : '') +
                         (genres ? '<div class="Shikimori-full__row"><b>Жанры:</b> ' + esc(genres) + '</div>' : '') +
                         (studios ? '<div class="Shikimori-full__row"><b>Студии:</b> ' + esc(studios) + '</div>' : '') +
-                        '<div class="simple-button selector Shikimori-full__back">Назад</div>' +
+                        '<div class="Shikimori-full__buttons">' +
+                            '<div class="simple-button selector Shikimori-full__search">Найти в Лампе</div>' +
+                            '<div class="simple-button selector Shikimori-full__torrent">Торренты</div>' +
+                            '<div class="simple-button selector Shikimori-full__online">Онлайн</div>' +
+                            '<div class="simple-button selector Shikimori-full__tmdb hide">Открыть карточку TMDB</div>' +
+                            '<div class="simple-button selector Shikimori-full__back">Назад</div>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
                 '<div class="Shikimori-full__description">' + description + '</div>'
             );
 
-            body.find('.Shikimori-full__back').on('hover:enter click tap', function closeShikimoriCard() {
-                if (Lampa.Activity && Lampa.Activity.backward) Lampa.Activity.backward();
-            });
+            bindFullButtons(anime);
 
             Lampa.Controller.collectionSet(html);
             Lampa.Controller.collectionFocus(body.find('.selector').first(), html);
@@ -3765,8 +3844,10 @@
                 '.Shikimori-full__meta{font-size:1.1em;color:rgba(255,255,255,.7);margin-bottom:1.3em}' +
                 '.Shikimori-full__row{font-size:1.05em;line-height:1.5;color:rgba(255,255,255,.72);margin:.35em 0}' +
                 '.Shikimori-full__row b{color:#fff;font-weight:600}' +
-                '.Shikimori-full__back{display:inline-block;margin-top:1.8em;padding:.75em 1.5em!important;background:rgba(255,255,255,.1)!important;border-radius:.45em}' +
-                '.Shikimori-full__back.focus{background:#c83a4b!important;color:#fff!important;transform:scale(1.04)}' +
+                '.Shikimori-full__buttons{display:flex;flex-wrap:wrap;gap:.65em;margin-top:1.8em}' +
+                '.Shikimori-full__buttons .simple-button{display:inline-block;padding:.75em 1.2em!important;background:rgba(255,255,255,.1)!important;border-radius:.45em;margin:0!important}' +
+                '.Shikimori-full__buttons .simple-button.focus{background:#c83a4b!important;color:#fff!important;transform:scale(1.04)}' +
+                '.Shikimori-full__tmdb{background:rgba(200,58,75,.22)!important}' +
                 '.Shikimori-full__description{font-size:1.13em;line-height:1.65;color:rgba(255,255,255,.78);margin-top:2.5em;padding-top:2em;border-top:1px solid rgba(255,255,255,.1)}' +
                 '.Shikimori-full__description p,.Shikimori-full__description div{margin:0 0 1em}.Shikimori-full__description ul,.Shikimori-full__description ol{padding-left:1.6em}' +
                 '@media(max-width:700px){.Shikimori-full__body{padding:2em 1.2em 4em}.Shikimori-full__hero{gap:1.4em}.Shikimori-full__poster{width:10em;flex-basis:10em}.Shikimori-full__poster img{min-height:14em}.Shikimori-full__title{font-size:2em}.Shikimori-full__description{font-size:1em}}' +
