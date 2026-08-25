@@ -9,7 +9,8 @@
   var PROXY_LIST = [
     'https://api.allorigins.win/raw?url=',
     'https://corsproxy.io/?',
-    'https://api.codetabs.com/v1/proxy?quest='
+    'https://api.codetabs.com/v1/proxy?quest=',
+    '' // no proxy - request the site directly
   ];
 
   function getSetting(key, def) {
@@ -31,7 +32,8 @@
 
   function proxyUrl(url) {
     var idx = getSetting('proxy', 0);
-    var base = PROXY_LIST[idx] || PROXY_LIST[0];
+    var base = (idx >= 0 && idx < PROXY_LIST.length) ? PROXY_LIST[idx] : PROXY_LIST[0];
+    if (!base) return url; // no proxy selected - direct request
     return base + encodeURIComponent(url);
   }
 
@@ -368,10 +370,15 @@
 
       httpGet(url, function (html) {
         if (!html) {
-          Lampa.Noty.show('AniStar: ошибка загрузки каталога');
+          console.warn('[AniStar] catalog: empty response for', url, '(proxy or site unreachable)');
+          Lampa.Noty.show('AniStar: пустой ответ от сервера (прокси или сайт недоступны)');
           return callback({ items: [], pagination: { current: page, total: 1 } });
         }
         var items = parseCatalogItems(html);
+        console.log('[AniStar] catalog page', page, '- response length:', html.length, '- items parsed:', items.length);
+        if (items.length === 0) {
+          console.warn('[AniStar] 0 items parsed, first 500 chars of response:', html.slice(0, 500));
+        }
         var pagination = parsePagination(html);
         var data = { items: items, pagination: pagination };
         cacheSet(cacheKey, data);
@@ -387,10 +394,15 @@
 
       httpGet(pageUrl, function (html) {
         if (!html) {
-          Lampa.Noty.show('AniStar: ошибка загрузки');
+          console.warn('[AniStar] catalogCategory: empty response for', pageUrl, '(proxy or site unreachable)');
+          Lampa.Noty.show('AniStar: пустой ответ от сервера (прокси или сайт недоступны)');
           return callback({ items: [], pagination: { current: page, total: 1 } });
         }
         var items = parseCatalogItems(html);
+        console.log('[AniStar] category', category, 'page', page, '- response length:', html.length, '- items parsed:', items.length);
+        if (items.length === 0) {
+          console.warn('[AniStar] 0 items parsed, first 500 chars of response:', html.slice(0, 500));
+        }
         var pagination = parsePagination(html);
         var data = { items: items, pagination: pagination };
         cacheSet(cacheKey, data);
@@ -868,7 +880,7 @@
     param: {
       name: 'anistar_proxy',
       type: 'select',
-      values: { '0': 'allorigins.win', '1': 'corsproxy.io', '2': 'codetabs.com' },
+      values: { '0': 'allorigins.win', '1': 'corsproxy.io', '2': 'codetabs.com', '3': 'Без прокси' },
       default: '0'
     },
     field: {
