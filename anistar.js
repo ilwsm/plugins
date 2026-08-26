@@ -42,17 +42,6 @@
     }, { type: 'arraybuffer' });
   }
 
-  function requestPost(url, body, callback) {
-    var req = new Lampa.Reguest();
-    req.timeout(20000);
-    req.post(url, body, function (data) {
-      var html = responseText(data);
-      callback(html && !/Just a moment|cf-chl-|cloudflare/i.test(html) ? html : '');
-    }, function () {
-      callback('');
-    });
-  }
-
   function parseCards(html) {
     var cards = [];
     var blocks = html.split(/<div\s+class=["']news["'][^>]*>/i).slice(1);
@@ -163,7 +152,7 @@
       object = activityObject || object;
       selectTitle = object.search || object.movie && object.movie.title || selectTitle;
       component.loading(true);
-      requestPost(BASE + '/index.php?do=search', 'story=' + encodeURIComponent(selectTitle) + '&do=search&subaction=search', function (html) {
+      request(BASE + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(selectTitle), function (html) {
         showResults(html);
       });
 
