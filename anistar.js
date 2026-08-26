@@ -42,6 +42,44 @@
     }, false, { dataType: 'text' });
   }
 
+  function encode1251(value) {
+    var result = '';
+    value = value || '';
+    for (var i = 0; i < value.length; i++) {
+      var code = value.charCodeAt(i);
+      var byte = code;
+      if (code >= 0x0410 && code <= 0x044f) byte = code - 0x350;
+      else if (code === 0x0401) byte = 0xa8;
+      else if (code === 0x0451) byte = 0xb8;
+      else if (code > 0x7f) {
+        result += encodeURIComponent(value.charAt(i));
+        continue;
+      }
+      var char = String.fromCharCode(byte);
+      result += /[A-Za-z0-9_.~-]/.test(char) ? char : '%' + ('0' + byte.toString(16)).slice(-2).toUpperCase();
+    }
+    return result;
+  }
+
+  function searchRequest(query, callback) {
+    var body = 'do=search&subaction=search&story=' + encode1251(query);
+    var req = new Lampa.Reguest();
+    req.timeout(20000);
+    req.native(BASE + '/', function (data) {
+      var html = responseText(data);
+      callback(html && !/Just a moment|cf-chl-|cloudflare/i.test(html) ? html : '');
+    }, function () {
+      callback('');
+    }, body, {
+      dataType: 'text',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': BASE,
+        'Referer': BASE + '/'
+      }
+    });
+  }
+
   function parseCards(html) {
     var cards = [];
     var blocks = html.split(/<div\s+class=["']news["'][^>]*>/i).slice(1);
@@ -151,15 +189,23 @@
     this.search = function (activityObject) {
       object = activityObject || object;
       selectTitle = object.search || object.movie && object.movie.title || selectTitle;
-      component.loading(true);
-      request(BASE + '/index.php?do=search&subaction=search&story=' + encodeURIComponent(selectTitle), function (html) {
-        showResults(html);
+      var movie = object.movie || {};
+      var queries = [movie.original_title || movie.original_name, selectTitle].filter(function (query, index, list) {
+        return query && list.indexOf(query) === index;
       });
+      component.loading(true);
+      find(0);
 
-      function showResults(html) {
-        if (!html) return component.emptyForQuery(selectTitle);
-        var items = parseCards(html);
-        if (!items.length) return component.emptyForQuery(selectTitle);
+      function find(index) {
+        if (index >= queries.length) return component.emptyForQuery(selectTitle);
+        searchRequest(queries[index], function (html) {
+          var items = html ? parseCards(html) : [];
+          if (!items.length) return find(index + 1);
+          showResults(items);
+        });
+      }
+
+      function showResults(items) {
         component.loading(false);
         component.reset();
         items.forEach(appendItem);
