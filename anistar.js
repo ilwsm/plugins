@@ -34,12 +34,12 @@
   function request(url, callback) {
     var req = new Lampa.Reguest();
     req.timeout(20000);
-    req.get(url, function (data) {
+    req.native(url, function (data) {
       var html = responseText(data);
       callback(html && !/Just a moment|cf-chl-|cloudflare/i.test(html) ? html : '');
     }, function () {
       callback('');
-    }, { type: 'arraybuffer' });
+    }, false, { dataType: 'text' });
   }
 
   function parseCards(html) {
