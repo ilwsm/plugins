@@ -31,6 +31,7 @@
     var AUTH_KEY = 'shikimori_auth_v1';
 
     var ARM_HOST = 'https://arm.haglund.dev';
+    var PAGE_RELAY = 'https://kp-relay.ua-andrey.workers.dev/';
     var TMDB_API_KEY = '4ef0d7355d9ffb5151e987764708ce96';
     var PAGE_LIMIT = 48;
 
@@ -578,6 +579,12 @@
             console.error('Shikimori: no network method available');
             onError({ status: 0, statusText: 'no network method available' });
         }
+    }
+
+    function apiGetText(url, success, error) {
+        var network = new Lampa.Reguest();
+        network.timeout(12000);
+        network.silent(url, success, error || function () {}, false, { dataType: 'text' });
     }
 
     /**
@@ -2342,7 +2349,9 @@
         }
 
         function renderAnime(anime) {
-            var poster = normalizePosterUrl(anime.image && (anime.image.original || anime.image.preview));
+            var posterList = posterUrls(anime);
+            var poster = posterList[0] || '';
+            var noPoster = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="450" height="635"><rect width="100%" height="100%" fill="#20232b"/><text x="50%" y="50%" fill="#777" font-family="Arial" font-size="28" text-anchor="middle">Нет постера</text></svg>');
             var original = valueOf(anime.english) || anime.name || '';
             var dates = anime.aired_on || '';
             var meta = [kindName(anime.kind), statusName(anime.status)];
@@ -2380,6 +2389,8 @@
                 '<div class="Shikimori-full__description">' + description + '</div>'
             );
 
+            installPosterFallback(body.find('.Shikimori-full__poster img'), posterList, noPoster, anime);
+
             var listButton = createShikimoriFullListButton();
             body.find('.Shikimori-full__buttons').find('.Shikimori-full__more').before(listButton);
             initShikimoriListButton(listButton, anime);
@@ -2391,7 +2402,45 @@
         }
 
         function loadAnime() {
-            apiGetJson(getShikiHost() + '/api/animes/' + encodeURIComponent(params.id), renderAnime, function showShikimoriCardError() {
+            apiGetJson(getShikiHost() + '/api/animes/' + encodeURIComponent(params.id), function completeAnimeFromPage(anime) {
+                if (!anime || !anime.id) {
+                    renderAnime(anime || {});
+                    return;
+                }
+
+                if (posterUrls(anime).length && anime.genres && anime.genres.length) {
+                    renderAnime(anime);
+                    return;
+                }
+
+                var pageUrl = getShikiHost() + (anime.url || '/animes/' + anime.id);
+                apiGetText(PAGE_RELAY + pageUrl, function mergePageMetadata(html) {
+                    if (!posterUrls(anime).length) {
+                        var poster = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+                            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+                        if (poster) anime.poster = { mainUrl: poster[1] };
+                    }
+
+                    if (!(anime.genres && anime.genres.length)) {
+                        var genres = [];
+                        var seen = {};
+                        var pattern = /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']video:tag["'][^>]*>/gi;
+                        var match;
+                        while ((match = pattern.exec(html)) !== null) {
+                            var name = String(match[1] || '').replace(/\s+/g, ' ').trim();
+                            if (name && !seen[name]) {
+                                seen[name] = true;
+                                genres.push({ name: name, russian: name });
+                            }
+                        }
+                        if (genres.length) anime.genres = genres;
+                    }
+
+                    renderAnime(anime);
+                }, function () {
+                    renderAnime(anime);
+                });
+            }, function showShikimoriCardError() {
                 body.html('<div class="Shikimori-empty">Не удалось загрузить карточку Shikimori</div>');
             });
         }
