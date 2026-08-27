@@ -48,7 +48,7 @@
         } catch (e) {
         }
         var value = Array.isArray(log) ? log.join('\n') : String(log || '');
-        var html = $('<div style="padding:1em;"><textarea style="width:100%;height:24em;color:#fff;background:#222;border:1px solid #555;padding:.7em;font-size:.85em;"></textarea><div style="margin-top:.7em;"><button class="selector anistar-log-copy" style="padding:.6em 1em;">Копировать лог</button><button class="selector anistar-log-clear" style="padding:.6em 1em;margin-left:.5em;">Очистить лог</button></div></div>');
+        var html = $('<div style="padding:1em;"><textarea style="width:100%;height:24em;color:#fff;background:#222;border:1px solid #555;padding:.7em;font-size:.85em;"></textarea><div style="display:flex;margin-top:.7em;"><button class="selector anistar-log-copy" style="padding:.6em 1em;">Копировать лог</button><button class="selector anistar-log-clear" style="padding:.6em 1em;margin-left:.5em;">Очистить лог</button><button class="selector anistar-log-close" style="padding:.6em 1em;margin-left:auto;">Закрыть</button></div></div>');
         html.find('textarea').val(value);
         html.find('.anistar-log-copy').on('click', function () {
             if (Lampa.Utils && Lampa.Utils.copyTextToClipboard) Lampa.Utils.copyTextToClipboard(value, function () {
@@ -60,6 +60,9 @@
             value = '';
             html.find('textarea').val('');
             Lampa.Noty.show('AniStar: лог очищен');
+        });
+        html.find('.anistar-log-close').on('click', function () {
+            Lampa.Modal.close();
         });
         Lampa.Modal.open({
             title: 'AniStar log', html: html, size: 'large', onBack: function () {
@@ -176,7 +179,7 @@
     }
 
     function searchRequest(query, callback) {
-        var body = 'do=search&subaction=search&story=' + encode1251(query);
+        var body = 'do=search&subaction=search&resorder=asc&story=' + encode1251(query);
         var req = new Lampa.Reguest();
         req.timeout(20000);
         debugLog('search:start', {url: BASE + '/', query: query, body: body});
