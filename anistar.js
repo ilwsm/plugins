@@ -39,12 +39,18 @@
         } catch (e) {
         }
         var value = Array.isArray(log) ? log.join('\n') : String(log || '');
-        var html = $('<div style="padding:1em;"><textarea style="width:100%;height:24em;color:#fff;background:#222;border:1px solid #555;padding:.7em;font-size:.85em;"></textarea><div style="margin-top:.7em;"><button class="selector" style="padding:.6em 1em;">Копировать лог</button></div></div>');
+        var html = $('<div style="padding:1em;"><textarea style="width:100%;height:24em;color:#fff;background:#222;border:1px solid #555;padding:.7em;font-size:.85em;"></textarea><div style="margin-top:.7em;"><button class="selector anistar-log-copy" style="padding:.6em 1em;">Копировать лог</button><button class="selector anistar-log-clear" style="padding:.6em 1em;margin-left:.5em;">Очистить лог</button></div></div>');
         html.find('textarea').val(value);
-        html.find('button').on('click', function () {
+        html.find('.anistar-log-copy').on('click', function () {
             if (Lampa.Utils && Lampa.Utils.copyTextToClipboard) Lampa.Utils.copyTextToClipboard(value, function () {
                 Lampa.Noty.show('AniStar: лог скопирован');
             });
+        });
+        html.find('.anistar-log-clear').on('click', function () {
+            Lampa.Storage.set(DEBUG_KEY, []);
+            value = '';
+            html.find('textarea').val('');
+            Lampa.Noty.show('AniStar: лог очищен');
         });
         Lampa.Modal.open({
             title: 'AniStar log', html: html, size: 'large', onBack: function () {
@@ -193,7 +199,8 @@
             if (!image) image = block.match(/<img[^>]*itemprop=["']image["'][^>]*src=["']([^"']+)["']/i);
             if (!title) return;
 
-            var year = block.match(/(?:Год выхода|Год)[\s\S]*?<a[^>]*>(\d{4})<\/a>/i);
+            var year = block.match(/(?:Год выхода|Год)[\s\S]*?<a[^>]*>(\d{4})<\/a>/i) ||
+                block.match(/\/filter\/year\/(\d{4})\//i);
             var rating = block.match(/itemprop=["']ratingValue["'][^>]*>([\d.]+)/i);
             cards.push({
                 title: text(title[2]),
@@ -237,6 +244,11 @@
         (html.match(/(?:https?:)?\/\/[^"'\s<>]+|\/test\/player2\/[^"'\s<>]+/gi) || []).forEach(function (link) {
             addLink(link, 'Смотреть онлайн');
         });
+
+        var p2pLinks = links.filter(function (item) {
+            return /\/test\/player2\/videoas_p2p_new\.php/i.test(item.url);
+        });
+        if (p2pLinks.length) links = p2pLinks;
 
         return {
             title: title ? text(title[1]) : '',
@@ -389,9 +401,30 @@
             object = activityObject || object;
             selectTitle = object.search || object.movie && object.movie.title || selectTitle;
             var movie = object.movie || {};
-            var queries = [movie.original_title || movie.original_name, selectTitle].filter(function (query, index, list) {
-                return query && list.indexOf(query) === index;
+            var shikimori = movie.shikimori || {};
+            var alternatives = movie.alternative_titles && movie.alternative_titles.results || [];
+            var queries = [
+                shikimori.russian,
+                selectTitle,
+                movie.original_title || movie.original_name,
+                shikimori.license_name_ru
+            ].concat(alternatives.map(function (item) {
+                return item && item.title;
+            }).filter(function (title) {
+                return !/[\u3040-\u30ff\u3400-\u9fff]/.test(title || '');
+            })).concat(shikimori.synonyms || []).concat(shikimori.japanese || []).concat(alternatives.map(function (item) {
+                return item && item.title;
+            }).filter(function (title) {
+                return /[\u3040-\u30ff\u3400-\u9fff]/.test(title || '');
+            }));
+            var queryKeys = {};
+            queries = queries.filter(function (query) {
+                var key = normalize(query) || text(query || '').toLowerCase();
+                if (!key || queryKeys[key]) return false;
+                queryKeys[key] = true;
+                return true;
             });
+            debugLog('search:queries', queries);
             component.loading(true);
             find(0);
 
