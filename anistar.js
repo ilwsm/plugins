@@ -7,7 +7,13 @@
     var BASE = 'https://v30.astar.bz';
     var SITE_PROXY = 'https://kp-relay.ua-andrey.workers.dev/';
     var DEBUG_KEY = 'anistar_debug_log';
+    var DEBUG_ENABLED_KEY = 'anistar_logging';
     var DEBUG_LIMIT = 100;
+
+    function debugEnabled() {
+        var value = Lampa.Storage.get(DEBUG_ENABLED_KEY, true);
+        return value !== false && value !== 'false';
+    }
 
     function debugValue(value) {
         if (value == null) return String(value);
@@ -20,6 +26,7 @@
     }
 
     function debugLog(event, data) {
+        if (!debugEnabled()) return;
         var line = new Date().toISOString() + ' [' + event + ']' + (data == null ? '' : ' ' + debugValue(data));
         if (window.console && console.log) console.log('[AniStar] ' + line);
         try {
@@ -33,6 +40,8 @@
     }
 
     function showDebugLog() {
+        var body = $('body');
+        var settingsOpen = body.hasClass('settings--open');
         var log = [];
         try {
             log = Lampa.Storage.get(DEBUG_KEY, []);
@@ -57,6 +66,7 @@
                 Lampa.Modal.close();
             }
         });
+        if (settingsOpen) body.removeClass('settings--open');
     }
 
     debugLog('loaded', {base: BASE, href: window.location && window.location.href});
@@ -677,9 +687,6 @@
             var buttons = page.find('.full-start__buttons, .full-start-new__buttons, .full-start__buttons-line').first();
             if (buttons.length) buttons.append(button); else page.find('.full-start__body, .full-start-new__body').first().append(button);
         }
-        var logButton = $('<div class="full-start__button selector anistar-debug-button" title="AniStar log"><span> AniStar log</span></div>');
-        logButton.on('hover:enter', showDebugLog);
-        page.find('.anistar-online-button').after(logButton);
     }
 
   if (Lampa.Template && Lampa.Template.add) Lampa.Template.add('anistar_online', '<div class="online selector"><div class="online__body"><div style="position:absolute;left:0;top:-0.3em;width:2.4em;height:2.4em"><svg style="height:2.4em;width:2.4em" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="64" cy="64" r="56" stroke="white" stroke-width="16"/><path d="M90.5 64.3827 50 87.7654V41l40.5 23.3827Z" fill="white"/></svg></div><div class="online__title" style="padding-left:2.1em">{title}</div><div class="online__quality" style="padding-left:3.4em">{quality}{info}</div></div></div>');
@@ -687,8 +694,38 @@
   var styleTarget = $('body');
   if (!$('#anistar-online-style').length && styleTarget && styleTarget.append) styleTarget.append('<style id="anistar-online-style">.anistar-online-button{display:inline-flex!important;align-items:center!important}.anistar-online-button svg{display:block;flex:0 0 auto}</style>');
 
+    function addSettings() {
+        if (!Lampa.Settings.main || !Lampa.Settings.main() || Lampa.Settings.main().render().find('[data-component="anistar"]').length) return;
+        var field = $('<div class="settings-folder selector" data-component="anistar"><div class="settings-folder__icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="27" stroke="white" stroke-width="5"/><path d="M27 20v24l20-12-20-12Z" fill="white"/></svg></div><div class="settings-folder__name">AniStar</div></div>');
+        Lampa.Settings.main().render().find('[data-component="more"]').after(field);
+        Lampa.Settings.main().update();
+    }
+
+    function initSettings() {
+        Lampa.Params.trigger(DEBUG_ENABLED_KEY, true);
+        Lampa.Template.add('settings_anistar', '<div><div class="settings-param selector" data-name="anistar_logging" data-type="toggle"><div class="settings-param__name">Вести лог</div><div class="settings-param__value"></div></div><div class="settings-param selector" data-name="anistar_log" data-static="true"><div class="settings-param__name">AniStar log</div><div class="settings-param__descr">Просмотреть, скопировать или очистить журнал</div></div></div>');
+
+        Lampa.Settings.listener.follow('open', function (event) {
+            if (event.name !== 'anistar') return;
+            var logButton = event.body.find('[data-name="anistar_log"]');
+            logButton.toggle(debugEnabled());
+            logButton.unbind('hover:enter').on('hover:enter', showDebugLog);
+        });
+
+        Lampa.Storage.listener.follow('change', function (event) {
+            if (event.name === DEBUG_ENABLED_KEY) {
+                $('[data-name="anistar_log"]').toggle(debugEnabled());
+            }
+        });
+
+        if (window.appready) addSettings(); else Lampa.Listener.follow('app', function (event) {
+            if (event.type === 'ready') addSettings();
+        });
+    }
+
   function init() {
     if (Lampa.Listener && Lampa.Listener.follow) Lampa.Listener.follow('full', addFullButton);
+    initSettings();
   }
 
     init();
