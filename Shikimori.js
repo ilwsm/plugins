@@ -2192,6 +2192,25 @@
             }
         }
 
+        function searchAniStar(anime) {
+            if (!anistarAvailable()) {
+                notify('Компонент AniStar не загружен');
+                return;
+            }
+
+            var movie = onlineMovie(anime);
+            Lampa.Activity.push({
+                url: '',
+                title: 'AniStar',
+                component: 'anistar',
+                search: movie.title,
+                search_one: movie.title,
+                search_two: movie.original_title,
+                movie: movie,
+                page: 1
+            });
+        }
+
         function onlineMovie(anime) {
             var english = valueOf(anime.english) || anime.name || '';
             var title = anime.name || english || anime.russian || '';
@@ -2221,6 +2240,15 @@
                 Lampa.Component &&
                 typeof Lampa.Component.get === 'function' &&
                 Lampa.Component.get('online_mod')
+            );
+        }
+
+        function anistarAvailable() {
+            return !!(
+                window.Lampa &&
+                Lampa.Component &&
+                typeof Lampa.Component.get === 'function' &&
+                Lampa.Component.get('anistar')
             );
         }
 
@@ -2273,6 +2301,13 @@
                 items.push({
                     title: 'Онлайн',
                     onSelect: function selectOnlineSource() { searchOnline(anime); }
+                });
+            }
+
+            if (anistarAvailable()) {
+                items.push({
+                    title: 'AniStar',
+                    onSelect: function selectAniStarSource() { searchAniStar(anime); }
                 });
             }
 
@@ -2344,6 +2379,10 @@
                 '</div>' +
                 '<div class="Shikimori-full__description">' + description + '</div>'
             );
+
+            var listButton = createShikimoriFullListButton();
+            body.find('.Shikimori-full__buttons').find('.Shikimori-full__more').before(listButton);
+            initShikimoriListButton(listButton, anime);
 
             bindFullButtons(anime);
 
