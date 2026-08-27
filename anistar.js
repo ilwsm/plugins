@@ -502,6 +502,7 @@
         var files = new Lampa.Explorer(object);
         var filter = new Lampa.Filter(object);
         var active = new source(component, object);
+        var last;
 
         scroll.body().addClass('torrent-list');
         scroll.minus(files.render().find('.explorer__files-head'));
@@ -525,11 +526,16 @@
         };
         this.start = function (firstSelect) {
             if (!Lampa.Activity.active() || Lampa.Activity.active().activity !== this.activity) return;
-            var first = scroll.render().find('.selector').eq(0)[0];
+            if (firstSelect) {
+                var lastViewed = scroll.render().find('.selector.online').find('.torrent-item__viewed').parent().last();
+                if (object.movie.number_of_seasons && lastViewed.length) last = lastViewed.eq(0)[0];
+                else last = scroll.render().find('.selector').eq(0)[0];
+            }
+            if (Lampa.Background && Lampa.Utils && Lampa.Utils.cardImgBackground && object.movie) Lampa.Background.immediately(Lampa.Utils.cardImgBackground(object.movie));
             Lampa.Controller.add('content', {
                 toggle: function () {
                     Lampa.Controller.collectionSet(scroll.render(), files.render());
-                    Lampa.Controller.collectionFocus(first, scroll.render());
+                    Lampa.Controller.collectionFocus(last || false, scroll.render());
                 },
                 up: function () {
                     if (Navigator.canmove('up')) Navigator.move('up'); else Lampa.Controller.toggle('head');
@@ -545,18 +551,24 @@
                 },
                 back: this.back
             });
-            if (firstSelect || component.inActivity && component.inActivity()) Lampa.Controller.toggle('content');
+            if (this.inActivity()) Lampa.Controller.toggle('content');
         };
         this.loading = function (state) {
             if (state) component.activity.loader(true); else {
                 component.activity.loader(false);
-                if (Lampa.Background && Lampa.Utils && Lampa.Utils.cardImgBackground && object.movie) Lampa.Background.immediately(Lampa.Utils.cardImgBackground(object.movie));
+                if (Lampa.Activity.active().activity === this.activity && this.inActivity()) this.activity.toggle();
             }
         };
         this.append = function (item) {
+            item.on('hover:focus nav_focus', function (event) {
+                last = event.target;
+                scroll.update($(event.target), true);
+            });
             scroll.append(item);
         };
         this.reset = function () {
+            last = filter.render().find('.selector').eq(0)[0];
+            scroll.render().find('.empty').remove();
             scroll.clear();
             scroll.reset();
         };
@@ -570,7 +582,8 @@
             this.empty('AniStar: ничего не найдено по запросу ' + query);
         };
         this.inActivity = function () {
-            return true;
+            var body = $('body');
+            return !(body.hasClass('settings--open') || body.hasClass('menu--open') || body.hasClass('keyboard-input--visible') || body.hasClass('selectbox--open') || body.hasClass('search--open') || body.hasClass('ambience--enable') || $('div.modal').length);
         };
         this.back = function () {
             Lampa.Activity.backward();
@@ -621,7 +634,7 @@
         var page = event.object && event.object.activity && event.object.activity.render();
         if (!page || page.find('.anistar-online-button').length) return;
     var button = $('<div class="full-start__button selector anistar-online-button" title="Смотреть на AniStar">' +
-      '<svg class="anistar-online-button__icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="currentColor" stroke-width="5"/><path d="M27 20v24l20-12-20-12Z" fill="currentColor"/><path d="m17 14 3.2 6.5 7.2 1-5.2 5.1 1.2 7.2L17 30.4l-6.4 3.4 1.2-7.2-5.2-5.1 7.2-1L17 14Z" fill="currentColor"/></svg>' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 244 260" aria-hidden="true"><path d="M242 88v170H10V88h41l-38 38h37.1l38-38h38.4l-38 38h38.4l38-38h38.3l-38 38H204l38-38ZM228.9 2l8 37.7L191.2 10l37.7-8ZM160.6 56l-45.8-29.7 38-8.1 45.8 29.7-38 8.1ZM84.5 72.1 38.8 42.4l38-8.1 45.8 29.7-38 8.1ZM10 88 2 50.2 47.8 80 10 88Z" fill="currentColor"/></svg>' +
       '<span>AniStar</span></div>');
         button.on('hover:enter', function () {
             openOnline(event.data.movie);
@@ -636,10 +649,10 @@
         page.find('.anistar-online-button').after(logButton);
     }
 
-  if (Lampa.Template && Lampa.Template.add) Lampa.Template.add('anistar_online', '<div class="online selector"><div class="online__body"><div class="online__title">{title}</div><div class="online__quality">{quality}{info}</div></div></div>');
+  if (Lampa.Template && Lampa.Template.add) Lampa.Template.add('anistar_online', '<div class="online selector"><div class="online__body"><div style="position:absolute;left:0;top:-0.3em;width:2.4em;height:2.4em"><svg style="height:2.4em;width:2.4em" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="64" cy="64" r="56" stroke="white" stroke-width="16"/><path d="M90.5 64.3827 50 87.7654V41l40.5 23.3827Z" fill="white"/></svg></div><div class="online__title" style="padding-left:2.1em">{title}</div><div class="online__quality" style="padding-left:3.4em">{quality}{info}</div></div></div>');
 
   var styleTarget = $('body');
-  if (!$('#anistar-online-style').length && styleTarget && styleTarget.append) styleTarget.append('<style id="anistar-online-style">.anistar-online-button{display:inline-flex!important;align-items:center!important;gap:.55em}.anistar-online-button__icon{width:1.7em;height:1.7em;object-fit:contain;flex:0 0 auto}</style>');
+  if (!$('#anistar-online-style').length && styleTarget && styleTarget.append) styleTarget.append('<style id="anistar-online-style">.anistar-online-button{display:inline-flex!important;align-items:center!important}.anistar-online-button svg{display:block;flex:0 0 auto}</style>');
 
   function init() {
     if (Lampa.Listener && Lampa.Listener.follow) Lampa.Listener.follow('full', addFullButton);
