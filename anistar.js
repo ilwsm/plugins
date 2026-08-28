@@ -8,6 +8,8 @@
     var SITE_PROXY = 'https://kp-relay.ua-andrey.workers.dev/';
     var DEBUG_KEY = 'anistar_debug_log';
     var DEBUG_ENABLED_KEY = 'anistar_logging';
+    var SITE_RELAY_KEY = 'anistar_site_relay';
+    var VIDEO_SOURCE_KEY = 'anistar_video_source';
     var DEBUG_LIMIT = 100;
     var VIDEO_CATS = [
         35, 39,
@@ -89,8 +91,28 @@
         return !html || /Just a moment|cf-chl-|cloudflare/i.test(html);
     }
 
+    function isAndroid() {
+        return !!(window.Lampa && Lampa.Platform && Lampa.Platform.is && Lampa.Platform.is('android'));
+    }
+
+    function siteRelayEnabled() {
+        if (isAndroid()) {
+            var android = Lampa.Storage.get(SITE_RELAY_KEY, 'off');
+            return android === true || android === 'on' || android === 'true';
+        }
+
+        var browser = Lampa.Storage.get(SITE_RELAY_KEY, 'on');
+        return browser !== false && browser !== 'off' && browser !== 'false';
+    }
+
+    function videoSource() {
+        var source = Lampa.Storage.get(VIDEO_SOURCE_KEY, 'auto') + '';
+        if (source === 'sfhd' || source === 'sfv') return source;
+        return isAndroid() ? 'sfhd' : 'sfv';
+    }
+
     function transportUrl(url) {
-        return SITE_PROXY + url;
+        return siteRelayEnabled() ? SITE_PROXY + url : url;
     }
 
     function absolute(url, ref) {
@@ -265,27 +287,35 @@
             url = absolute((url || '').replace(/\\\//g, '/'), ref);
             if (!url || seen[url] || !/\.m3u8(?:\?|$)|\.mp4(?:\?|$)/i.test(url)) return;
             if (/sfv\.an-media\.org/i.test(url) && !/\.m3u8(?:\?|$)/i.test(url)) url += (url.indexOf('?') === -1 ? '?' : '&') + 'anistar.m3u8';
-            if (useRelay) url = transportUrl(url);
+            if (useRelay) url = SITE_PROXY + url;
             seen[url] = true;
             streams.push({url: url, title: text(title) || ('Эпизод ' + (streams.length + 1)), quality: quality ? quality + 'p' : '720p'});
         }
 
+        var source = videoSource();
         var playlist = extractArray(html, /(?:var\s+)?playlst\s*=\s*/i);
         if (playlist) {
             splitObjects(playlist).forEach(function (episode) {
                 var title = valueOf(episode, 'title');
                 var files = filesOf(episode, 'files');
                 var mp4 = filesOf(episode, 'files_mp4');
-                // sfv returns an HLS playlist from a URL ending in .mp4 and does not
-                // require the Referer header in a browser, unlike sf2.
-                var playable = files.filter(function (file) {
-                    return /sfv\.an-media\.org/i.test(file.url);
-                });
+                var playable = [];
+                var useRelay = false;
+
+                if (source === 'sfhd') {
+                    playable = mp4;
+                    useRelay = true;
+                } else {
+                    playable = files.filter(function (file) {
+                        return /sfv\.an-media\.org/i.test(file.url);
+                    });
+                }
+
                 playable.sort(function (a, b) {
                     return b.quality - a.quality;
                 });
                 if (playable[0]) {
-                    add(playable[0].url, title || playable[0].title, playable[0].quality, false);
+                    add(playable[0].url, title || playable[0].title, playable[0].quality, useRelay);
                     return;
                 }
 
@@ -682,7 +712,18 @@
 
     function initSettings() {
         Lampa.Params.trigger(DEBUG_ENABLED_KEY, true);
-        Lampa.Template.add('settings_anistar', '<div><div class="settings-param selector" data-name="anistar_logging" data-type="toggle"><div class="settings-param__name">Вести лог</div><div class="settings-param__value"></div></div><div class="settings-param selector" data-name="anistar_log" data-static="true"><div class="settings-param__name">AniStar log</div><div class="settings-param__descr">Просмотреть, скопировать или очистить журнал</div></div></div>');
+        Lampa.Params.trigger(SITE_RELAY_KEY, isAndroid() ? 'off' : 'on');
+        Lampa.Params.select(VIDEO_SOURCE_KEY, {
+            'auto': 'Авто',
+            'sfhd': 'MP4 / sfhd',
+            'sfv': 'HLS / sfv'
+        }, 'auto');
+        Lampa.Template.add('settings_anistar', '<div>' +
+            '<div class="settings-param selector" data-name="anistar_logging" data-type="toggle"><div class="settings-param__name">Вести лог</div><div class="settings-param__value"></div></div>' +
+            '<div class="settings-param selector" data-name="' + SITE_RELAY_KEY + '" data-type="toggle"><div class="settings-param__name">Запросы AniStar через relay</div><div class="settings-param__value"></div></div>' +
+            '<div class="settings-param selector" data-name="' + VIDEO_SOURCE_KEY + '" data-type="select"><div class="settings-param__name">Источник видео</div><div class="settings-param__value"></div></div>' +
+            '<div class="settings-param selector" data-name="anistar_log" data-static="true"><div class="settings-param__name">AniStar log</div><div class="settings-param__descr">Просмотреть, скопировать или очистить журнал</div></div>' +
+            '</div>');
 
         Lampa.Settings.listener.follow('open', function (event) {
             if (event.name !== 'anistar') return;
