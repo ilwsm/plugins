@@ -95,14 +95,15 @@
         return !!(window.Lampa && Lampa.Platform && Lampa.Platform.is && Lampa.Platform.is('android'));
     }
 
-    function siteRelayEnabled() {
-        if (isAndroid()) {
-            var android = Lampa.Storage.get(SITE_RELAY_KEY, 'off');
-            return android === true || android === 'on' || android === 'true';
-        }
+    function siteRelayDefault() {
+        return !isAndroid();
+    }
 
-        var browser = Lampa.Storage.get(SITE_RELAY_KEY, 'on');
-        return browser !== false && browser !== 'off' && browser !== 'false';
+    function siteRelayEnabled() {
+        var value = Lampa.Storage.get(SITE_RELAY_KEY, siteRelayDefault());
+        if (value === true || value === 'on' || value === 'true') return true;
+        if (value === false || value === 'off' || value === 'false') return false;
+        return siteRelayDefault();
     }
 
     function videoSource() {
@@ -712,7 +713,7 @@
 
     function initSettings() {
         Lampa.Params.trigger(DEBUG_ENABLED_KEY, true);
-        Lampa.Params.trigger(SITE_RELAY_KEY, isAndroid() ? 'off' : 'on');
+        Lampa.Params.trigger(SITE_RELAY_KEY, siteRelayDefault());
         Lampa.Params.select(VIDEO_SOURCE_KEY, {
             'auto': 'Авто',
             'sfhd': 'MP4 / sfhd',
