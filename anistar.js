@@ -405,7 +405,7 @@
             selectTitle = object.search || object.movie && object.movie.title || selectTitle;
             var movie = object.movie || {};
             var shikimori = movie.shikimori || {};
-            var query = shikimori.russian || selectTitle || movie.title || movie.name || '';
+            var query = shikimori.name || shikimori.russian || selectTitle || movie.title || movie.name || '';
             debugLog('search:query', query);
             component.loading(true);
             var req = searchRequest(query, function (html) {
