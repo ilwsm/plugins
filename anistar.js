@@ -274,8 +274,33 @@
         return {
             title: title ? text(title[1]) : '',
             poster: poster ? absolute(poster[1], url) : '',
-            links: links
+            links: links,
+            legacy: parseLegacyPlayer(html)
         };
+    }
+
+    // The mobile skin embeds <iframe src="/playlist_anistar2.php?mobile=1&link=...">.
+    // An empty link= means a text DLE article, a filled one means the episodes live
+    // on an external host (VK, Sibnet, Myvi). The URL never passes addLink(), so it
+    // has to be picked up separately to tell those cases apart.
+    function parseLegacyPlayer(html) {
+        var match = (html || '').match(/playlist_anistar2\.php\?([^"'\s<>]*)/i);
+        if (!match) return {found: false, link: ''};
+        var link = match[1].match(/(?:^|&(?:amp;)?)link=([^&]*)/i);
+        return {found: true, link: link ? decodeHtml(link[1]).trim() : ''};
+    }
+
+    function noVideoReason(detail) {
+        var legacy = detail && detail.legacy || {found: false, link: ''};
+        if (legacy.found && legacy.link) return 'external';
+        if (legacy.found) return 'article';
+        return 'noplayer';
+    }
+
+    function noVideoMessage(reason) {
+        if (reason === 'article') return 'AniStar: это статья без видео';
+        if (reason === 'external') return 'AniStar: видео на внешнем плеере (VK, Sibnet, Myvi) — не поддерживается';
+        return 'AniStar: страница без видеоплеера';
     }
 
     function parsePlayer(html, ref) {
@@ -482,16 +507,28 @@
             component.loading(true);
             load(item.url, function (html) {
                 var detail = parseDetail(html, item.url);
-                debugLog('detail:parsed', {url: item.url, htmlBytes: html.length, links: detail.links.length});
+                var reason = noVideoReason(detail);
+                debugLog('detail:parsed', {
+                    url: item.url,
+                    htmlBytes: html.length,
+                    links: detail.links.length,
+                    legacy: detail.legacy.found,
+                    legacyLink: detail.legacy.link,
+                    reason: reason
+                });
                 if (!detail.links.length) {
                     component.loading(false);
-                    return Lampa.Noty.show('AniStar: видео не найдено');
+                    debugLog('detail:novideo', {url: item.url, reason: reason, stage: 'links'});
+                    return Lampa.Noty.show(noVideoMessage(reason));
                 }
                 resolveStreams(detail.links, function (streams) {
                     if (destroyed) return;
                     debugLog('player:resolved', {links: detail.links.length, streams: streams.length});
                     component.loading(false);
-                    if (!streams.length) return Lampa.Noty.show('AniStar: поток видео не найден');
+                    if (!streams.length) {
+                        debugLog('detail:novideo', {url: item.url, reason: reason, stage: 'streams'});
+                        return Lampa.Noty.show(noVideoMessage(reason));
+                    }
                     showEpisodes(streams, detail.title || item.title);
                 }, 0, load);
             });
