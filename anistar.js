@@ -101,9 +101,7 @@
 
     function siteRelayEnabled() {
         var value = Lampa.Storage.get(SITE_RELAY_KEY, siteRelayDefault());
-        if (value === true || value === 'on' || value === 'true') return true;
-        if (value === false || value === 'off' || value === 'false') return false;
-        return siteRelayDefault();
+        return value === true || (value !== false && siteRelayDefault());
     }
 
     function videoSource() {
