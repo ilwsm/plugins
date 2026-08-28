@@ -103,30 +103,6 @@
         return decodeHtml(value).replace(/\s+/g, ' ');
     }
 
-    function normalize(value) {
-        return text(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[‐‑‒–—−]/g, '-').replace(/[^a-zа-я0-9]+/gi, ' ').trim();
-    }
-
-    function selectCards(cards, object) {
-        var movie = object.movie || {};
-        var titles = [object.search, movie.title, movie.name, movie.original_title, movie.original_name].filter(Boolean).map(normalize);
-        var year = parseInt((object.search_date || movie.release_date || movie.first_air_date || movie.last_air_date || '').toString().slice(0, 4), 10);
-        var exact = cards.filter(function (card) {
-            var title = normalize(card.title);
-            return titles.some(function (query) {
-                return query && (title === query || title.indexOf(query) !== -1 || query.indexOf(title) !== -1);
-            });
-        });
-        if (exact.length) cards = exact;
-        if (cards.length > 1 && year) {
-            var byYear = cards.filter(function (card) {
-                return parseInt(card.year, 10) === year;
-            });
-            if (byYear.length) cards = byYear;
-        }
-        return cards;
-    }
-
     function responseText(data) {
         if (typeof data === 'string') return data;
         if (data && data instanceof ArrayBuffer) {
@@ -179,11 +155,12 @@
     }
 
     function searchRequest(query, callback) {
-        var body = 'do=search&subaction=search&resorder=asc&story=' + encode1251(query);
+        var body = 'do=search&subaction=search&search_start=1&full_search=1&result_from=1&titleonly=3&searchdate=0&beforeafter=after&sortby=date&resorder=asc&showposts=0&catlist%5B%5D=39&catlist%5B%5D=35&story=' + encode1251(query);
+        var searchUrl = BASE + '/index.php?action_skin_change=1&skin_name=smartphone';
         var req = new Lampa.Reguest();
         req.timeout(20000);
-        debugLog('search:start', {url: BASE + '/', query: query, body: body});
-        req.native(transportUrl(BASE + '/'), function (data) {
+        debugLog('search:start', {url: searchUrl, query: query, body: body});
+        req.native(transportUrl(searchUrl), function (data) {
             var html = responseText(data);
             debugLog('search:success', {dataType: typeof data, bytes: html.length, start: html.slice(0, 160)});
             callback(blocked(html) ? '' : html);
@@ -204,23 +181,19 @@
 
     function parseCards(html) {
         var cards = [];
-        var blocks = html.split(/<div\s+class=["']news["'][^>]*>/i).slice(1);
+        var blocks = html.split(/<div\s+class=["']plash["'][^>]*>/i).slice(1);
 
         blocks.forEach(function (block) {
-            var title = block.match(/class=["']title_left["'][^>]*>[\s\S]*?<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
-            var image = block.match(/<img[^>]*src=["']([^"']+)["'][^>]*class=["']main-img["']/i);
-            if (!image) image = block.match(/<img[^>]*itemprop=["']image["'][^>]*src=["']([^"']+)["']/i);
+            var title = block.match(/class=["']plash-title["'][^>]*>[\s\S]*?<a[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?<span[^>]*class=["']title-top["'][^>]*>([\s\S]*?)<\/span>/i);
+            var image = block.match(/class=["']poster["'][^>]*>[\s\S]*?<img[^>]*src=["']([^"']+)["']/i);
             if (!title) return;
 
-            var year = block.match(/(?:Год выхода|Год)[\s\S]*?<a[^>]*>(\d{4})<\/a>/i) ||
-                block.match(/\/filter\/year\/(\d{4})\//i);
-            var rating = block.match(/itemprop=["']ratingValue["'][^>]*>([\d.]+)/i);
             cards.push({
                 title: text(title[2]),
                 url: absolute(title[1]),
                 poster: image ? absolute(image[1]) : '',
-                year: year ? year[1] : '',
-                rating: rating ? rating[1] : ''
+                year: '',
+                rating: ''
             });
         });
 
@@ -432,47 +405,19 @@
             selectTitle = object.search || object.movie && object.movie.title || selectTitle;
             var movie = object.movie || {};
             var shikimori = movie.shikimori || {};
-            var alternatives = movie.alternative_titles && movie.alternative_titles.results || [];
-            var queries = [
-                shikimori.russian,
-                selectTitle,
-                movie.original_title || movie.original_name,
-                shikimori.license_name_ru
-            ].concat(alternatives.map(function (item) {
-                return item && item.title;
-            }).filter(function (title) {
-                return !/[\u3040-\u30ff\u3400-\u9fff]/.test(title || '');
-            })).concat(shikimori.synonyms || []).concat(shikimori.japanese || []).concat(alternatives.map(function (item) {
-                return item && item.title;
-            }).filter(function (title) {
-                return /[\u3040-\u30ff\u3400-\u9fff]/.test(title || '');
-            }));
-            var queryKeys = {};
-            queries = queries.filter(function (query) {
-                var key = normalize(query) || text(query || '').toLowerCase();
-                if (!key || queryKeys[key]) return false;
-                queryKeys[key] = true;
-                return true;
-            });
-            debugLog('search:queries', queries);
+            var query = shikimori.russian || selectTitle || movie.title || movie.name || '';
+            debugLog('search:query', query);
             component.loading(true);
-            find(0);
-
-            function find(index) {
-                if (index >= queries.length) return component.emptyForQuery(selectTitle);
-                var req = searchRequest(queries[index], function (html) {
-                    if (destroyed) return;
-                    var items = html ? parseCards(html) : [];
-                    items = selectCards(items, object);
-                    debugLog('search:parsed', {query: queries[index], htmlBytes: html.length, cards: items.length});
-                    if (!items.length) return find(index + 1);
-                    showResults(items);
-                });
-                requests.push(req);
-            }
+            var req = searchRequest(query, function (html) {
+                if (destroyed) return;
+                var items = html ? parseCards(html) : [];
+                debugLog('search:parsed', {query: query, htmlBytes: html.length, cards: items.length});
+                if (!items.length) return component.emptyForQuery(query);
+                showResults(items);
+            });
+            requests.push(req);
 
             function showResults(items) {
-                if (items.length === 1) return loadCard(items[0]);
                 component.loading(false);
                 component.reset();
                 items.forEach(appendItem);
