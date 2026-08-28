@@ -274,12 +274,13 @@
         var streams = [];
         var seen = {};
 
-        function add(url, title) {
+        function add(url, title, quality, useRelay) {
             url = absolute((url || '').replace(/\\\//g, '/'), ref);
             if (!url || seen[url] || !/\.m3u8(?:\?|$)|\.mp4(?:\?|$)/i.test(url)) return;
             if (/sfv\.an-media\.org/i.test(url) && !/\.m3u8(?:\?|$)/i.test(url)) url += (url.indexOf('?') === -1 ? '?' : '&') + 'anistar.m3u8';
+            if (useRelay) url = transportUrl(url);
             seen[url] = true;
-            streams.push({url: url, title: text(title) || ('Эпизод ' + (streams.length + 1)), quality: '720p'});
+            streams.push({url: url, title: text(title) || ('Эпизод ' + (streams.length + 1)), quality: quality ? quality + 'p' : '720p'});
         }
 
         var playlist = extractArray(html, /(?:var\s+)?playlst\s*=\s*/i);
@@ -293,15 +294,31 @@
                 var playable = files.filter(function (file) {
                     return /sfv\.an-media\.org/i.test(file.url);
                 });
-                if (!playable.length) playable = files.filter(function (file) {
-                    return /\.m3u8(?:\?|$)/i.test(file.url);
-                });
-                if (!playable.length) playable = files;
-                if (!playable.length) playable = mp4;
                 playable.sort(function (a, b) {
                     return b.quality - a.quality;
                 });
-                if (playable[0]) add(playable[0].url, title || playable[0].title);
+                if (playable[0]) {
+                    add(playable[0].url, title || playable[0].title, playable[0].quality, false);
+                    return;
+                }
+
+                // Older sf2/sfhd files require an AniStar Referer. Browser
+                // playback cannot set it, so use the relay only for that MP4.
+                mp4.sort(function (a, b) {
+                    return b.quality - a.quality;
+                });
+                if (mp4[0]) {
+                    add(mp4[0].url, title || mp4[0].title, mp4[0].quality, true);
+                    return;
+                }
+
+                playable = files.filter(function (file) {
+                    return /\.m3u8(?:\?|$)/i.test(file.url);
+                });
+                playable.sort(function (a, b) {
+                    return b.quality - a.quality;
+                });
+                if (playable[0]) add(playable[0].url, title || playable[0].title, playable[0].quality, false);
             });
         }
 
