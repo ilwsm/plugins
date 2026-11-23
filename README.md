@@ -10,6 +10,7 @@
 - `key_test.js`
 - `kp_reviews.js`
 - `kp_reviews2.js`
+- `no_panel_on_pause.js`
 - `rating.js`
 - `rezkacomment.js`
 - `spawn_search.html`
